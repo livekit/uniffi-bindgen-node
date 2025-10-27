@@ -59,10 +59,14 @@ impl BindingGenerator for NodeBindingGenerator {
 
             let Bindings {
                 napi_interop_rust_file_contents,
+                node_ts_file_contents,
             } = generate_node_bindings(&ci)?;
 
             let napi_interop_file_path = settings.out_dir.join(format!("{}_napi_interop.rs", ci.namespace()));
             fs::write(&napi_interop_file_path, napi_interop_rust_file_contents)?;
+
+            let node_ts_file_path = settings.out_dir.join(format!("{}_node.ts", ci.namespace()));
+            fs::write(&node_ts_file_path, node_ts_file_contents)?;
 
             // let scaffolding_header_path = settings
             //     .out_dir

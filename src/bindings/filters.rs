@@ -69,8 +69,8 @@ pub fn typescript_type_name(typ: &impl AsType, askama_values: &dyn askama::Value
         Type::String => "string".into(),
         Type::Bytes => "ArrayBuffer".into(),
         Type::Timestamp => "Date".into(),
-        Type::Duration => unimplemented!(), // ref: https://github.com/jhugman/uniffi-bindgen-react-native/blob/b9301797ef697331d29edb9d2402ea35c218571e/crates/ubrn_bindgen/src/bindings/gen_typescript/miscellany.rs#L31
-        Type::Enum { name, .. } | Type::Record { name, .. } => format!("r#{name}"),
+        Type::Duration => "/* FIXME: what is a good duration type? */".into(), // ref: https://github.com/jhugman/uniffi-bindgen-react-native/blob/b9301797ef697331d29edb9d2402ea35c218571e/crates/ubrn_bindgen/src/bindings/gen_typescript/miscellany.rs#L31
+        Type::Enum { name, .. } | Type::Record { name, .. } => name.to_pascal_case(),
         Type::Object { name, imp, .. } => imp.rust_name_for(&name).to_pascal_case(),
         Type::CallbackInterface { name, .. } => name.to_lower_camel_case(),
         Type::Optional { inner_type } => {
@@ -89,10 +89,14 @@ pub fn typescript_type_name(typ: &impl AsType, askama_values: &dyn askama::Value
     })
 }
 
-pub fn typescript_fn_name(raw_name: &str, _: &dyn askama::Values) -> String {
-    raw_name.to_lower_camel_case()
+pub fn typescript_fn_name(raw_name: &str, _: &dyn askama::Values) -> Result<String> {
+    Ok(raw_name.to_lower_camel_case())
 }
 
-pub fn typescript_var_name(raw_name: &str, _: &dyn askama::Values) -> String {
-    raw_name.to_lower_camel_case()
+pub fn typescript_var_name(raw_name: &str, _: &dyn askama::Values) -> Result<String> {
+    Ok(raw_name.to_lower_camel_case())
+}
+
+pub fn typescript_class_name(raw_name: &str, _: &dyn askama::Values) -> Result<String> {
+    Ok(raw_name.to_pascal_case())
 }
