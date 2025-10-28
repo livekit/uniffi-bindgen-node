@@ -97,7 +97,7 @@ pub fn rust_ffi_napi_type_name(ffi_type: &FfiType, askama_values: &dyn askama::V
         FfiType::RustBuffer(_) => "RustBuffer".into(),
         FfiType::ForeignBytes => "ForeignBytes".into(),
         FfiType::Callback(name) => format!("/* {name} */ *mut ::core::ffi::c_void"),
-        FfiType::Struct(name) => rust_ffi_struct_name(name, askama_values)?,
+        FfiType::Struct(name) => format!("livekit_uniffi_ffi_sys::{}", rust_ffi_struct_name(name, askama_values)?),
         FfiType::Handle => "/*handle*/ ::napi::bindgen_prelude::BigInt".into(),
         FfiType::RustCallStatus => "RustCallStatus".into(),
         FfiType::MutReference(inner) => format!("*mut {}", rust_ffi_type_name(inner, askama_values)?),
