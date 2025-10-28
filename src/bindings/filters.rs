@@ -54,6 +54,7 @@ pub fn rust_enum_variant_name(raw_name: &str, _: &dyn askama::Values) -> Result<
 }
 
 
+/// The type of values in the extern C <-> dynamic library bindings
 pub fn rust_ffi_type_name(ffi_type: &FfiType, askama_values: &dyn askama::Values) -> Result<String> {
     Ok(match ffi_type {
         FfiType::Int8 => "::core::ffi::c_char".into(),
@@ -69,8 +70,8 @@ pub fn rust_ffi_type_name(ffi_type: &FfiType, askama_values: &dyn askama::Values
         // FfiType::RustArcPtr(_) => "void *".into(),
         FfiType::RustBuffer(_) => "RustBuffer".into(),
         FfiType::ForeignBytes => "ForeignBytes".into(),
-        FfiType::Callback(nm) => rust_ffi_callback_name(nm, askama_values)?,
-        FfiType::Struct(nm) => rust_ffi_struct_name(nm, askama_values)?,
+        FfiType::Callback(name) => format!("/* {name} */ *mut ::core::ffi::c_void"),
+        FfiType::Struct(name) => rust_ffi_struct_name(name, askama_values)?,
         FfiType::Handle => "/*handle*/ u64".into(),
         FfiType::RustCallStatus => "RustCallStatus".into(),
         FfiType::MutReference(inner) => format!("*mut {}", rust_ffi_type_name(inner, askama_values)?),
@@ -78,6 +79,33 @@ pub fn rust_ffi_type_name(ffi_type: &FfiType, askama_values: &dyn askama::Values
         FfiType::VoidPointer => "*mut ::core::ffi::c_void".into(), // ???
     })
 }
+
+/// The type of values in the napi <-> extern C bindings
+pub fn rust_ffi_napi_type_name(ffi_type: &FfiType, askama_values: &dyn askama::Values) -> Result<String> {
+    Ok(match ffi_type {
+        FfiType::Int8 => "::core::ffi::c_char".into(),
+        FfiType::UInt8 => "::core::ffi::c_schar".into(),
+        FfiType::Int16 => "::core::ffi::c_ushort".into(),
+        FfiType::UInt16 => "::core::ffi::c_short".into(),
+        FfiType::Int32 => "::core::ffi::c_int".into(),
+        FfiType::UInt32 => "::core::ffi::c_uint".into(),
+        FfiType::Int64 => "/* long */ napi::bindgen_prelude::BigInt".into(),
+        FfiType::UInt64 => "/* ulong */ napi::bindgen_prelude::BigInt".into(),
+        FfiType::Float32 => "::core::ffi::c_float".into(),
+        FfiType::Float64 => "::core::ffi::c_double".into(),
+        // FfiType::RustArcPtr(_) => "void *".into(),
+        FfiType::RustBuffer(_) => "RustBuffer".into(),
+        FfiType::ForeignBytes => "ForeignBytes".into(),
+        FfiType::Callback(name) => format!("/* {name} */ *mut ::core::ffi::c_void"),
+        FfiType::Struct(name) => rust_ffi_struct_name(name, askama_values)?,
+        FfiType::Handle => "/*handle*/ ::napi::bindgen_prelude::BigInt".into(),
+        FfiType::RustCallStatus => "RustCallStatus".into(),
+        FfiType::MutReference(inner) => format!("*mut {}", rust_ffi_type_name(inner, askama_values)?),
+        FfiType::Reference(inner) => format!("* {}", rust_ffi_type_name(inner, askama_values)?),
+        FfiType::VoidPointer => "*mut ::core::ffi::c_void".into(), // ???
+    })
+}
+
 
 pub fn rust_ffi_callback_name(nm: &str, _: &dyn askama::Values) -> Result<String> {
     Ok(format!("uniffi_{}", nm.to_snake_case()))

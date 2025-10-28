@@ -17,6 +17,19 @@ use {{ci.crate_name()}};
 {%- endif -%}
 {% endmacro %}
 
+{% macro rust_napi_to_ffi_arg_list(ffi_func) %}
+    {%- for arg in ffi_func.arguments() -%}
+        {%- if matches!(arg.type_().borrow(), FfiType::UInt64 | FfiType::Handle) -%}
+            {{ arg.name() | rust_var_name }}.get_u64().1
+        {%- else if matches!(arg.type_().borrow(), FfiType::Int64) -%}
+            {{ arg.name() | rust_var_name }}.get_i64().0
+        {%- else -%}
+            {{ arg.name() | rust_var_name }}
+        {%- endif -%}
+        {%- if !loop.last %}, {% endif -%}
+    {%- endfor -%}
+{%- endmacro %}
+
 
 {#- ========== #}
 {#- Record definitions: #}
@@ -86,14 +99,62 @@ pub enum {{ enum_def.name() | rust_fn_name }} {
 {#- Object definitions: #}
 {#- ========== #}
 
+{%- for definition in ci.ffi_definitions() %}
+    {%- match definition %}
 
-{% for func_def in ci.function_definitions() %}
-{% call docstring(func_def.docstring()) %}
-#[napi]
-pub {% if func_def.is_async() %}async {% endif %}fn {{ func_def.name() | rust_fn_name }}({% call macros::rust_param_list(func_def) %}){%- if let Some(ret_type) = func_def.return_type() %} -> {{ ret_type | rust_type_name }} {%- endif %} {
-    {{ci.crate_name()}}_ffi_sys::{{func_def.ffi_func().name() | rust_fn_name}}({% call macros::rust_ffi_arg_list(func_def.ffi_func()) %})
-}
-{% endfor %}
+    {%- when FfiDefinition::CallbackFunction(callback) %}
+    #[napi]
+    pub fn {{ callback.name() | rust_ffi_callback_name }}(
+    {%-   for arg in callback.arguments() %}
+        {{ arg.name() }}: {{ arg.type_().borrow() | rust_ffi_napi_type_name }}{% if !loop.last %}, {% endif %}
+    {%-   endfor %}
+    )
+    {%-   if callback.has_rust_call_status_arg() -%}
+    {%      if callback.arguments().len() > 0 %}, {% endif %}rust_call_status: *mut RustCallStatus
+    {%-   endif %}
+    {%-   match callback.return_type() %}
+    {%-     when Some(return_type) %} -> {{ return_type | rust_ffi_type_name }}
+    {%-     when None %}
+    {%-   endmatch %} {
+        unsafe {
+            {{ci.crate_name()}}_ffi_sys::{{ callback.name() | rust_ffi_callback_name }}({% call rust_napi_to_ffi_arg_list(callback) %}
+        {%- if callback.has_rust_call_status_arg() %}
+        {%-   if !callback.arguments().is_empty() %}, {# space #}
+        {%   endif %}rust_call_status
+        {%- endif %}
+            )
+        }
+    }
+
+    {%- when FfiDefinition::Function(func) %}
+    #[napi]
+    pub fn {{ func.name() }}(
+        {%- for arg in func.arguments() %}
+        {{ arg.name() }}: {{ arg.type_().borrow() | rust_ffi_napi_type_name }}
+        {%-   if !loop.last %}, {# space #}
+        {%-   endif %}
+        {%- endfor %}
+        {%- if func.has_rust_call_status_arg() %}
+        {%-   if !func.arguments().is_empty() %}, {# space #}
+        {%   endif %}rust_call_status: RustCallStatus
+        {%- endif %}
+    )
+    {%- if let Some(return_type) = func.return_type() -%}
+        {# space #} -> {{ return_type.borrow() | rust_ffi_type_name }}
+    {%- endif %} {
+        unsafe {
+            {{ci.crate_name()}}_ffi_sys::{{ func.name() }}({% call rust_napi_to_ffi_arg_list(func) %}
+            {%- if func.has_rust_call_status_arg() %}
+            {%-   if !func.arguments().is_empty() %}, {# space #}
+            {%   endif %}rust_call_status
+            {%- endif %})
+        }
+    }
+
+    {%- else %}
+    {%- endmatch %}
+
+{%- endfor %}
 
 
 {#- ========== #}
@@ -148,8 +209,8 @@ mod {{ci.crate_name()}}_ffi_sys {
             {%   endif %}uniffi_out_err: RustCallStatus
             {%- endif %}
         )
-        {%- if let Some(return_type) = func.return_type() %}
-            -> {{ return_type.borrow() | rust_ffi_type_name }}
+        {%- if let Some(return_type) = func.return_type() -%}
+            {# space #} -> {{ return_type.borrow() | rust_ffi_type_name }}
         {%- endif %};
 
         {%- else %}
