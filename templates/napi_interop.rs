@@ -179,12 +179,12 @@ mod {{ci.crate_name()}}_ffi_sys {
 
 
     #[link(name = "/Users/ryan/w/livekit/rust-sdks/target/release/liblivekit_uniffi.dylib")]
-    extern "C" {
+    unsafe extern "C" {
     {%- for definition in ci.ffi_definitions() %}
         {%- match definition %}
 
         {%- when FfiDefinition::CallbackFunction(callback) %}
-        pub unsafe fn {{ callback.name() | rust_ffi_callback_name }}(
+        pub fn {{ callback.name() | rust_ffi_callback_name }}(
         {%-   for arg in callback.arguments() %}
             {{ arg.name() }}: {{ arg.type_().borrow() | rust_ffi_type_name }}{% if !loop.last %}, {% endif %}
         {%-   endfor %}
@@ -198,7 +198,7 @@ mod {{ci.crate_name()}}_ffi_sys {
         {%-   endmatch %};
 
         {%- when FfiDefinition::Function(func) %}
-        pub unsafe fn {{ func.name() }}(
+        pub fn {{ func.name() }}(
             {%- for arg in func.arguments() %}
             {{ arg.name() }}: {{ arg.type_().borrow() | rust_ffi_type_name }}
             {%-   if !loop.last %}, {# space #}
