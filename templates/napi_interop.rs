@@ -3,9 +3,7 @@
 #![deny(clippy::all)]
 
 use napi_derive::napi;
-use uniffi::{RustBuffer, RustCallStatus, RustCallStatusCode, UniffiForeignPointerCell, ForeignBytes};
-
-use {{ci.crate_name()}};
+use uniffi::{RustBuffer, RustCallStatus, RustCallStatusCode, /* UniffiForeignPointerCell, */ ForeignBytes};
 
 
 {% macro docstring(optional_docstring) %}

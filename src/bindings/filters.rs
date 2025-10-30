@@ -158,6 +158,56 @@ pub fn typescript_type_name(typ: &impl AsType, askama_values: &dyn askama::Value
     })
 }
 
+pub fn typescript_ffi_type_name(ffi_type: &FfiType, askama_values: &dyn askama::Values) -> Result<String> {
+    Ok(match ffi_type {
+        FfiType::Int8 => "number".into(),
+        FfiType::Int16 => "number".into(),
+        FfiType::Int32 => "number".into(),
+        FfiType::Int64 => "bigint".into(),
+        FfiType::UInt8 => "number".into(),
+        FfiType::UInt16 => "number".into(),
+        FfiType::UInt32 => "number".into(),
+        FfiType::UInt64 => "bigint".into(),
+        FfiType::Float32 => "number".into(),
+        FfiType::Float64 => "number".into(), // FIXME: is this right for f64? I am not sure `number` is big enough?
+        // FfiType::RustArcPtr(_) => "void *".into(),
+        FfiType::RustBuffer(_) => "Buffer".into(),
+        FfiType::ForeignBytes => "JsExternal".into(),
+        FfiType::Callback(name) => typescript_callback_name(name, askama_values)?,
+        FfiType::Struct(name) => typescript_ffi_struct_name(name, askama_values)?,
+        FfiType::Handle => "/* handle */ bigint".into(),
+        FfiType::RustCallStatus => "/* RustCallStatus */ DataType.U8Array".into(),
+        FfiType::MutReference(inner) => format!("/* MutReference to {} */ JsExternal", typescript_ffi_type_name(inner, askama_values)?),
+        FfiType::Reference(inner) => format!("/* Reference to {} */ JsExternal", typescript_ffi_type_name(inner, askama_values)?),
+        FfiType::VoidPointer => "void".into(), // ???
+    })
+}
+
+pub fn typescript_ffi_datatype_name(ffi_type: &FfiType, askama_values: &dyn askama::Values) -> Result<String> {
+    Ok(match ffi_type {
+        FfiType::Int8 => "/* i8 */ DataType.I16".into(),
+        FfiType::Int16 => "DataType.I16".into(),
+        FfiType::Int32 => "DataType.I32".into(),
+        FfiType::Int64 => "DataType.I64".into(),
+        FfiType::UInt8 => "DataType.U8".into(),
+        FfiType::UInt16 => "/* u16 */ DataType.U64".into(),
+        FfiType::UInt32 => "/* u32 */ DataType.U64".into(),
+        FfiType::UInt64 => "DataType.U64".into(),
+        FfiType::Float32 => "/* f32 */ DataType.Float".into(),
+        FfiType::Float64 => "/* f64 */ DataType.Float".into(), // FIXME: is this right for f64? I am not sure `number` is big enough?
+        // FfiType::RustArcPtr(_) => "void *".into(),
+        FfiType::RustBuffer(_) => "DataType.U8Array".into(),
+        FfiType::ForeignBytes => "DataType.External".into(),
+        FfiType::Callback(name) => format!("/* {name} */ DataType.Function"),
+        FfiType::Struct(name) => format!("/* {} */ DataType.U8Array", typescript_ffi_struct_name(name, askama_values)?),
+        FfiType::Handle => "/* handle */ DataType.U64".into(),
+        FfiType::RustCallStatus => "/* RustCallStatus */ DataType.U8Array".into(),
+        FfiType::MutReference(inner) => format!("/* MutReference to {} */ DataType.External", typescript_ffi_type_name(inner, askama_values)?),
+        FfiType::Reference(inner) => format!("/* Reference to {} */ DataType.External", typescript_ffi_type_name(inner, askama_values)?),
+        FfiType::VoidPointer => "DataType.Void".into(), // ???
+    })
+}
+
 pub fn typescript_fn_name(raw_name: &str, _: &dyn askama::Values) -> Result<String> {
     Ok(raw_name.to_lower_camel_case())
 }
@@ -168,4 +218,12 @@ pub fn typescript_var_name(raw_name: &str, _: &dyn askama::Values) -> Result<Str
 
 pub fn typescript_class_name(raw_name: &str, _: &dyn askama::Values) -> Result<String> {
     Ok(raw_name.to_pascal_case())
+}
+
+pub fn typescript_ffi_struct_name(raw_name: &str, _: &dyn askama::Values) -> Result<String> {
+    Ok(format!("Uniffi{}", raw_name.to_upper_camel_case()))
+}
+
+pub fn typescript_callback_name(raw_name: &str, _: &dyn askama::Values) -> Result<String> {
+    Ok(format!("UniffiCallback{}", raw_name.to_upper_camel_case()))
 }
