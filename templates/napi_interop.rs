@@ -70,7 +70,7 @@ fn decode_uintarray_to_rust_call_status(encoded_uniffi_call_status: &napi::bindg
 {% macro rust_napi_to_ffi_args_initialization(ffi_func) %}
     {%- for arg in ffi_func.arguments() -%}
         {%- if matches!(arg.type_().borrow(), FfiType::RustBuffer(_)) -%}
-            let mut rust_buffer_{{ arg.name() | rust_var_name }} = {
+            let rust_buffer_{{ arg.name() | rust_var_name }} = {
                 let slice_u8 = {{ arg.name() | rust_var_name }}.as_ref();
                 let vec_u8 = slice_u8.to_vec();
                 RustBuffer::from_vec(vec_u8)
