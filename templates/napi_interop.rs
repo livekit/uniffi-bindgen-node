@@ -3,7 +3,7 @@
 #![deny(clippy::all)]
 
 use napi_derive::napi;
-use uniffi::{RustBuffer, RustCallStatus, RustCallStatusCode, UniffiForeignPointerCell};
+use uniffi::{RustBuffer, RustCallStatus, RustCallStatusCode, UniffiForeignPointerCell, ForeignBytes};
 
 use {{ci.crate_name()}};
 
@@ -17,10 +17,10 @@ use {{ci.crate_name()}};
 {%- endif -%}
 {% endmacro %}
 
-fn convert_rust_buffer_to_uint8array(rust_buffer_ptr: *mut RustBuffer) -> napi::bindgen_prelude::Uint8Array {
+fn convert_rust_buffer_to_uint8array(rust_buffer: RustBuffer) -> napi::bindgen_prelude::Uint8Array {
     // FIXME: the from_raw() call may not be the right thing to do here, read more in the docs to be sure
-    let rust_buffer = unsafe { Box::from_raw(rust_buffer_ptr) };
-    let vec_u8 = (*rust_buffer).destroy_into_vec();
+    // let rust_buffer = unsafe { Box::from_raw(rust_buffer_ptr) };
+    let vec_u8 = (/* * */rust_buffer).destroy_into_vec();
     napi::bindgen_prelude::Uint8Array::new(vec_u8)
 }
 
@@ -65,7 +65,7 @@ fn convert_i64_to_bigint(n: i64) -> napi::bindgen_prelude::BigInt {
 {% macro rust_napi_to_ffi_args_teardown(ffi_func) %}
     {%- for arg in ffi_func.arguments() -%}
         {%- if matches!(arg.type_().borrow(), FfiType::RustBuffer(_)) -%}
-            rust_buffer_{{ arg.name() | rust_var_name }}.destroy();
+            // rust_buffer_{{ arg.name() | rust_var_name }}.destroy();
         {% endif %}
     {%- endfor -%}
 {%- endmacro %}
