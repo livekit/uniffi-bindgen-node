@@ -80,12 +80,49 @@ close('liblivekit_uniffi')
 {% for record_def in ci.record_definitions() %}
 {% call docstring(record_def.docstring()) %}
 export type {{ record_def.name() | typescript_class_name }} = {
-{%- for field_def in record_def.fields() -%}
+  {%- for field_def in record_def.fields() -%}
     {% call docstring(field_def.docstring()) %}
     {%- let type_ = field_def.as_type() %}
     {{field_def.name() | typescript_var_name}}: {{field_def | typescript_type_name}};
-{%- endfor %}
+  {%- endfor %}
 }
+
+{#
+export const {{ record_def.name() }} = {
+  lift(input: Buffer, index = 0): [{{ record_def.name() }}, number] {
+    {%- match field.type_().borrow() -%}
+        {%- when Type::Int8 | Type::Int16 | Type::Int32 | Type::Int64 | Type::UInt8 | Type::UInt16 | Type::UInt32 | Type::UInt64 | Type::Float32 | Type::Float64 -%}
+            self.{{ field.name() }}.get_u64().1
+        {%- when FfiType::Int64 -%}
+            self.{{ field.name() }}.get_i64().0
+        {%- when FfiType::Struct(_) -%}
+            self.{{ field.name() }}.to_c_struct()
+        {%- when FfiType::RustBuffer(_) -%}
+            {
+                // FIXME: this is untested, check this to make sure it works once it gets generated
+                // in final output
+                let slice_u8 = self.{{ field.name() }}.as_ref();
+                let vec_u8 = slice_u8.to_vec();
+                RustBuffer::from_vec(vec_u8)
+            }
+        {%- when FfiType::RustCallStatus -%}
+            decode_uintarray_to_rust_call_status(&self.{{ field.name() }})
+        {%- else -%}
+            self.{{ field.name() }} /* FIXME: add more field handlers here! */
+    {%- endmatch -%}
+
+    index += 
+    {%- for field_def in record_def.fields() -%}
+        {% call docstring(field_def.docstring()) %}
+        {%- let type_ = field_def.as_type() %}
+        {{field_def.name() | typescript_var_name}}: {{field_def | typescript_type_name}};
+    {%- endfor %}
+  },
+  lower(input: {{ record_def.name() }}): Buffer {
+    // TODO!
+  },
+};
+#}
 
 {% endfor %}
 
