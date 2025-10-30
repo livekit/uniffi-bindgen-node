@@ -68,12 +68,12 @@ pub fn rust_ffi_type_name(ffi_type: &FfiType, askama_values: &dyn askama::Values
         FfiType::Float32 => "::core::ffi::c_float".into(),
         FfiType::Float64 => "::core::ffi::c_double".into(),
         // FfiType::RustArcPtr(_) => "void *".into(),
-        FfiType::RustBuffer(_) => "*mut RustBuffer".into(),
+        FfiType::RustBuffer(_) => "RustBuffer".into(),
         FfiType::ForeignBytes => "ForeignBytes".into(),
         FfiType::Callback(name) => format!("/* {name} */ *mut ::core::ffi::c_void"),
         FfiType::Struct(name) => rust_ffi_struct_name(name, askama_values)?,
         FfiType::Handle => "/* handle */ u64".into(),
-        FfiType::RustCallStatus => "*mut RustCallStatus".into(),
+        FfiType::RustCallStatus => "RustCallStatus".into(),
         FfiType::MutReference(inner) => format!("*mut {}", rust_ffi_type_name(inner, askama_values)?),
         FfiType::Reference(inner) => format!("* {}", rust_ffi_type_name(inner, askama_values)?),
         FfiType::VoidPointer => "*mut ::core::ffi::c_void".into(), // ???
@@ -99,7 +99,7 @@ pub fn rust_ffi_napi_type_name(ffi_type: &FfiType, askama_values: &dyn askama::V
         FfiType::Callback(name) => format!("/* {name} */ *mut ::core::ffi::c_void"),
         FfiType::Struct(name) => format!("livekit_uniffi_ffi_sys::{}", rust_ffi_struct_name(name, askama_values)?),
         FfiType::Handle => "/* handle */ ::napi::bindgen_prelude::BigInt".into(),
-        FfiType::RustCallStatus => "*mut RustCallStatus".into(),
+        FfiType::RustCallStatus => "/* RustCallStatus */ ::napi::bindgen_prelude::Uint8Array".into(),
         FfiType::MutReference(inner) => format!("*mut {}", rust_ffi_type_name(inner, askama_values)?),
         FfiType::Reference(inner) => format!("* {}", rust_ffi_type_name(inner, askama_values)?),
         FfiType::VoidPointer => "*mut ::core::ffi::c_void".into(), // ???
