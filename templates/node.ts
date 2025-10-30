@@ -71,8 +71,6 @@ close('liblivekit_uniffi')
 
 
 
-import * as _napiCore from "./tbd-path-to-napi-generated-js";
-
 
 
 // ==========
@@ -130,8 +128,12 @@ export type {{ enum_def.name() | typescript_class_name }} =
 
 {% for func_def in ci.function_definitions() %}
 {% call docstring(func_def.docstring()) %}
-export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() | typescript_fn_name }}({% call param_list(func_def) %}){%- if let Some(ret_type) = func_def.return_type() %}: {{ ret_type | typescript_type_name }} {%- endif %} {
-    return _napiCore.{{func_def.name() | typescript_fn_name}}({% call napi_call_arg_list(func_def) %});
+export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() | typescript_fn_name }}(
+  {%- call param_list(func_def) -%}
+){%- if let Some(ret_type) = func_def.return_type() -%}: {% if func_def.is_async() -%}
+  Promise<{%- endif -%}{{ ret_type | typescript_type_name }}{%- if func_def.is_async() -%}>{%- endif -%}
+{%- endif %} {
+    return FFI_DYNAMIC_LIB.{{ func_def.ffi_func().name() }}([{% call napi_call_arg_list(func_def) %}]);
 }
 
 {% endfor %}
@@ -170,6 +172,9 @@ export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() 
 {%- endfor %}
 
 // Actual FFI functions from dynamic library
+/** This direct / "extern C" type FFI interface is bound directly to the functions exposed by the
+  * dynamic library. Using this manually from end-user javascript code is unsafe and this is not
+  * recommended. */
 const FFI_DYNAMIC_LIB = define({
     {%- for definition in ci.ffi_definitions() %}
         {%- match definition %}
