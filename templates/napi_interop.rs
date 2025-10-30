@@ -48,6 +48,24 @@ fn encode_rust_call_status_to_uint8array(uniffi_call_status: RustCallStatus) -> 
     napi::bindgen_prelude::Uint8Array::new(uniffi_call_status_bytes)
 }
 
+fn decode_uintarray_to_rust_call_status(encoded_uniffi_call_status: &napi::bindgen_prelude::Uint8Array) -> RustCallStatus {
+    let Some((first, rest)) = encoded_uniffi_call_status.split_first() else {
+        panic!("decode_uintarray_to_rust_call_status: input is not at least two bytes long!");
+    };
+
+    let code = match first {
+        0 => RustCallStatusCode::Success,
+        1 => RustCallStatusCode::Error,
+        2 => RustCallStatusCode::UnexpectedError,
+        3 => RustCallStatusCode::Cancelled,
+        _ => unreachable!(),
+    };
+
+    let error_buf = RustBuffer::from_vec(rest.to_vec());
+
+    RustCallStatus { code, error_buf: ::std::mem::ManuallyDrop::new(error_buf) }
+}
+
 {# Perform any pre-setup work that should be done in a non unsafe context before calling the extern C ffi function #}
 {% macro rust_napi_to_ffi_args_initialization(ffi_func) %}
     {%- for arg in ffi_func.arguments() -%}
@@ -263,12 +281,56 @@ pub enum {{ enum_def.name() | rust_fn_name }} {
 {%- endfor %}
 
 
+
+{% for definition in ci.ffi_definitions() %}
+    {%- match definition %}
+    {%- when FfiDefinition::Struct(ffi_struct) %}
+    #[napi(object)]
+    pub struct {{ffi_struct.name() | rust_ffi_napi_struct_name}} {
+        {% for field in ffi_struct.fields() %}
+            pub {{ field.name() }}: {{ field.type_().borrow() | rust_ffi_napi_type_name }}{% if !loop.last %}, {% endif %}
+        {% endfor %}
+    }
+
+    impl {{ffi_struct.name() | rust_ffi_napi_struct_name}} {
+        // FIXME: replace with from/into traits
+        fn to_c_struct(&self) -> {{ci.crate_name()}}_ffi_sys::{{ ffi_struct.name() | rust_ffi_struct_name }} {
+            {{ci.crate_name()}}_ffi_sys::{{ ffi_struct.name() | rust_ffi_struct_name }} {
+                {% for field in ffi_struct.fields() -%}
+                    {{ field.name() }}: {% match field.type_().borrow() -%}
+                        {%- when FfiType::Struct(_) -%}
+                            {{ field.name() }}.to_c_struct()
+                        {%- when FfiType::RustCallStatus -%}
+                            decode_uintarray_to_rust_call_status(&self.{{ field.name() }})
+                        {%- else -%}
+                            self.{{ field.name() }} /* FIXME: add more field handlers here! */
+                    {%- endmatch -%}{% if !loop.last %}, {% endif %}
+                {% endfor %}
+            }
+        }
+        // // FIXME: replace with from/into traits
+        // fn from_c_struct(value: {{ffi_struct.name() | rust_ffi_struct_name}}) -> Self {
+        //     1
+        // }
+    }
+
+    {%- else %}
+    {%- endmatch %}
+
+{%- endfor %}
+
+
+
+
+
+
 {#- ========== #}
 {#- FFI definitions: #}
 {#- ========== #}
 
 mod {{ci.crate_name()}}_ffi_sys {
     use uniffi::{RustBuffer, RustCallStatus, RustCallStatusCode, UniffiForeignPointerCell};
+    use napi_derive::napi;
 
     {%- for definition in ci.ffi_definitions() %}
         {%- match definition %}
@@ -276,7 +338,7 @@ mod {{ci.crate_name()}}_ffi_sys {
         #[repr(C)]
         pub struct {{ffi_struct.name() | rust_ffi_struct_name}} {
             {% for field in ffi_struct.fields() %}
-                {{ field.name() }}: {{ field.type_().borrow() | rust_ffi_type_name }}{% if !loop.last %}, {% endif %}
+                pub {{ field.name() }}: {{ field.type_().borrow() | rust_ffi_type_name }}{% if !loop.last %}, {% endif %}
             {% endfor %}
         }
 
