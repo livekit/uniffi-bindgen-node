@@ -87,7 +87,9 @@ fn decode_uintarray_to_rust_call_status(encoded_uniffi_call_status: &napi::bindg
         {%- else if matches!(arg.type_().borrow(), FfiType::Int64) -%}
             {{ arg.name() | rust_var_name }}.get_i64().0
         {%- else if matches!(arg.type_().borrow(), FfiType::RustBuffer(_)) -%}
-            &mut rust_buffer_{{ arg.name() | rust_var_name }}
+            rust_buffer_{{ arg.name() | rust_var_name }}
+        {%- else if matches!(arg.type_().borrow(), FfiType::Struct(_)) -%}
+            {{ arg.name() | rust_var_name }}.to_c_struct()
         {%- else -%}
             {{ arg.name() | rust_var_name }}
         {%- endif -%}
