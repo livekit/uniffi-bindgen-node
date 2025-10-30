@@ -227,7 +227,39 @@ export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() 
 ){%- if let Some(ret_type) = func_def.return_type() -%}: {% if func_def.is_async() -%}
   Promise<{%- endif -%}{{ ret_type | typescript_type_name }}{%- if func_def.is_async() -%}>{%- endif -%}
 {%- endif %} {
-    return FFI_DYNAMIC_LIB.{{ func_def.ffi_func().name() }}([{% call napi_call_arg_list(func_def) %}]);
+  {% if func_def.return_type().is_some() %}let returnValue = {% endif -%}
+  {% match func_def.throws_type() -%}
+    {%- when Some(err) -%}
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeAccessTokenError.lift.bind(FfiConverterTypeAccessTokenError),
+        /*caller:*/ (callStatus) => {
+    {%- else -%}
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+    {%- endmatch %}
+        return FFI_DYNAMIC_LIB.{{ func_def.ffi_func().name() }}([
+          {% for arg in func_def.arguments() -%}
+            {{ arg.as_type().borrow() | typescript_ffi_converter_name }}.lower({{ arg.name() | typescript_var_name }})
+            {%- if !loop.last %}, {% endif %}
+          {%- endfor -%}
+
+          {%- if func_def.ffi_func().has_rust_call_status_arg() -%}
+            {%- if !func_def.arguments().is_empty() %}, {% endif -%}
+            callStatus
+          {%- endif %}
+        ]);
+      // return nativeModule().ubrn_uniffi_livekit_uniffi_fn_func_generate_token(
+      //   FfiConverterTypeTokenOptions.lower(options),
+      //   FfiConverterOptionalTypeApiCredentials.lower(credentials),
+      //   callStatus
+      // );
+      },
+      /*liftString:*/ {{ &Type::String | typescript_ffi_converter_name }}.lift
+  );
+
+  {% if let Some(ret_type) = func_def.return_type() -%}
+    return {{ ret_type | typescript_ffi_converter_name }}.lift(returnValue);
+  {%- endif %}
 }
 
 {% endfor %}
