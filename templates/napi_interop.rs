@@ -32,6 +32,22 @@ fn convert_i64_to_bigint(n: i64) -> napi::bindgen_prelude::BigInt {
     napi::bindgen_prelude::BigInt { sign_bit: n < 0, words: vec![n.unsigned_abs()] }
 }
 
+fn encode_rust_call_status_to_uint8array(uniffi_call_status: RustCallStatus) -> napi::bindgen_prelude::Uint8Array {
+    // Encode the uniffi call status value into a Uint8Array so it can be passed back into
+    // javascript land over the napi bridge.
+    let mut uniffi_call_status_bytes: Vec<u8> = vec![];
+    uniffi_call_status_bytes.push(match &uniffi_call_status.code {
+        RustCallStatusCode::Success => 0,
+        RustCallStatusCode::Error => 1,
+        RustCallStatusCode::UnexpectedError => 2,
+        RustCallStatusCode::Cancelled => 3,
+    });
+    // FIXME: the into_inner() call may not be safe, read more of the std::mem::ManuallyDrop docs to verify
+    uniffi_call_status_bytes.extend(::std::mem::ManuallyDrop::into_inner(uniffi_call_status.error_buf).destroy_into_vec());
+
+    napi::bindgen_prelude::Uint8Array::new(uniffi_call_status_bytes)
+}
+
 {# Perform any pre-setup work that should be done in a non unsafe context before calling the extern C ffi function #}
 {% macro rust_napi_to_ffi_args_initialization(ffi_func) %}
     {%- for arg in ffi_func.arguments() -%}
@@ -226,17 +242,7 @@ pub enum {{ enum_def.name() | rust_fn_name }} {
         {%- if func.has_rust_call_status_arg() %}
         // Encode the uniffi call status value into a Uint8Array so it can be passed back into
         // javascript land over the napi bridge.
-        let mut uniffi_call_status_bytes: Vec<u8> = vec![];
-        uniffi_call_status_bytes.push(match &uniffi_call_status.code {
-            RustCallStatusCode::Success => 0,
-            RustCallStatusCode::Error => 1,
-            RustCallStatusCode::UnexpectedError => 2,
-            RustCallStatusCode::Cancelled => 3,
-        });
-        // FIXME: the into_inner() call may not be safe, read more of the std::mem::ManuallyDrop docs to verify
-        uniffi_call_status_bytes.extend(::std::mem::ManuallyDrop::into_inner(uniffi_call_status.error_buf).destroy_into_vec());
-
-        let encoded_uniffi_call_status = napi::bindgen_prelude::Uint8Array::new(uniffi_call_status_bytes);
+        let encoded_uniffi_call_status = encode_rust_call_status_to_uint8array(uniffi_call_status);
         {%- endif %}
 
         {# space #}
