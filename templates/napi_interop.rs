@@ -119,6 +119,30 @@ fn decode_uintarray_to_rust_call_status(encoded_uniffi_call_status: &napi::bindg
     {%- endmatch %}
 {%- endmacro %}
 
+{# When mapping from a struct's "napi representation" to "c representation", what should be on the RHS of each `field_a: self.field_a` expression? #}
+{% macro rust_napi_to_ffi_struct_expression(field) %}
+    {%- match field.type_().borrow() -%}
+        {%- when FfiType::UInt64 | FfiType::Handle -%}
+            self.{{ field.name() }}.get_u64().1
+        {%- when FfiType::Int64 -%}
+            self.{{ field.name() }}.get_i64().0
+        {%- when FfiType::Struct(_) -%}
+            self.{{ field.name() }}.to_c_struct()
+        {%- when FfiType::RustBuffer(_) -%}
+            {
+                // FIXME: this is untested, check this to make sure it works once it gets generated
+                // in final output
+                let slice_u8 = self.{{ field.name() }}.as_ref();
+                let vec_u8 = slice_u8.to_vec();
+                RustBuffer::from_vec(vec_u8)
+            }
+        {%- when FfiType::RustCallStatus -%}
+            decode_uintarray_to_rust_call_status(&self.{{ field.name() }})
+        {%- else -%}
+            self.{{ field.name() }} /* FIXME: add more field handlers here! */
+    {%- endmatch -%}
+{% endmacro %}
+
 {#- ========== #}
 {#- Record definitions: #}
 {#- ========== #}
@@ -297,14 +321,7 @@ pub enum {{ enum_def.name() | rust_fn_name }} {
         fn to_c_struct(&self) -> {{ci.crate_name()}}_ffi_sys::{{ ffi_struct.name() | rust_ffi_struct_name }} {
             {{ci.crate_name()}}_ffi_sys::{{ ffi_struct.name() | rust_ffi_struct_name }} {
                 {% for field in ffi_struct.fields() -%}
-                    {{ field.name() }}: {% match field.type_().borrow() -%}
-                        {%- when FfiType::Struct(_) -%}
-                            {{ field.name() }}.to_c_struct()
-                        {%- when FfiType::RustCallStatus -%}
-                            decode_uintarray_to_rust_call_status(&self.{{ field.name() }})
-                        {%- else -%}
-                            self.{{ field.name() }} /* FIXME: add more field handlers here! */
-                    {%- endmatch -%}{% if !loop.last %}, {% endif %}
+                    {{ field.name() }}: {% call rust_napi_to_ffi_struct_expression(field) %}{% if !loop.last %}, {% endif %}
                 {% endfor %}
             }
         }
