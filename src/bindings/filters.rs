@@ -138,7 +138,7 @@ pub fn typescript_type_name(typ: &impl AsType, askama_values: &dyn askama::Value
         Type::String => "string".into(),
         Type::Bytes => "ArrayBuffer".into(),
         Type::Timestamp => "Date".into(),
-        Type::Duration => "/* FIXME: what is a good duration type? */".into(), // ref: https://github.com/jhugman/uniffi-bindgen-react-native/blob/b9301797ef697331d29edb9d2402ea35c218571e/crates/ubrn_bindgen/src/bindings/gen_typescript/miscellany.rs#L31
+        Type::Duration => "number /* in milliseconds */".into(), // ref: https://github.com/jhugman/uniffi-bindgen-react-native/blob/b9301797ef697331d29edb9d2402ea35c218571e/crates/ubrn_bindgen/src/bindings/gen_typescript/miscellany.rs#L31
         Type::Enum { name, .. } | Type::Record { name, .. } => name.to_pascal_case(),
         Type::Object { name, imp, .. } => imp.rust_name_for(&name).to_pascal_case(),
         Type::CallbackInterface { name, .. } => name.to_lower_camel_case(),
@@ -150,7 +150,7 @@ pub fn typescript_type_name(typ: &impl AsType, askama_values: &dyn askama::Value
             key_type,
             value_type,
         } => format!(
-            "Record<{}, {}>",
+            "Map<{}, {}>",
             typescript_type_name(&key_type, askama_values)?,
             typescript_type_name(&value_type, askama_values)?,
         ),
@@ -208,6 +208,42 @@ pub fn typescript_ffi_datatype_name(ffi_type: &FfiType, askama_values: &dyn aska
     })
 }
 
+pub fn typescript_ffi_converter_name(typ: &impl AsType, askama_values: &dyn askama::Values) -> Result<String> {
+    Ok(match typ.as_type() {
+        Type::Int8 => "FfiConverterInt8".into(),
+        Type::Int16 => "FfiConverterInt16".into(),
+        Type::Int32 => "FfiConverterInt32".into(),
+        Type::Int64 => "FfiConverterInt64".into(),
+        Type::UInt8 => "FfiConverterUInt8".into(),
+        Type::UInt16 => "FfiConverterUInt16".into(),
+        Type::UInt32 => "FfiConverterUInt32".into(),
+        Type::UInt64 => "FfiConverterUInt64".into(),
+        Type::Float32 => "FfiConverterFloat32".into(),
+        Type::Float64 => "FfiConverterFloat64".into(),
+        Type::Boolean => "FfiConverterBool".into(),
+        Type::String => "FfiConverterString".into(),
+        Type::Bytes => "FfiConverterBytes".into(),
+        Type::Timestamp => "FfiConverterTimestamp".into(),
+        Type::Duration => "FfiConverterDuration".into(),
+        Type::Enum { name, .. } | Type::Record { name, .. } => typescript_ffi_converter_struct_enum_name(&name, askama_values)?,
+        Type::Object { name, imp, .. } => typescript_class_name(&imp.rust_name_for(&name), askama_values)?,
+        Type::CallbackInterface { name, .. } => name.to_lower_camel_case(),
+        Type::Optional { inner_type } => {
+            format!("(new FfiConverterOptional({}))", typescript_ffi_converter_name(&inner_type, askama_values)?)
+        }
+        Type::Sequence { inner_type } => format!("(new FfiConverterArray({}))", typescript_ffi_converter_name(&inner_type, askama_values)?),
+        Type::Map {
+            key_type,
+            value_type,
+        } => format!(
+            "(new FfiConverterMap({}, {}))",
+            typescript_ffi_converter_name(&key_type, askama_values)?,
+            typescript_ffi_converter_name(&value_type, askama_values)?,
+        ),
+        Type::Custom { name, .. } => format!("/* custom? */ {}", name.to_pascal_case()), // FIXME: what should this be?
+    })
+}
+
 pub fn typescript_fn_name(raw_name: &str, _: &dyn askama::Values) -> Result<String> {
     Ok(raw_name.to_lower_camel_case())
 }
@@ -226,4 +262,8 @@ pub fn typescript_ffi_struct_name(raw_name: &str, _: &dyn askama::Values) -> Res
 
 pub fn typescript_callback_name(raw_name: &str, _: &dyn askama::Values) -> Result<String> {
     Ok(format!("UniffiCallback{}", raw_name.to_upper_camel_case()))
+}
+
+pub fn typescript_ffi_converter_struct_enum_name(struct_name: &str, _: &dyn askama::Values) -> Result<String> {
+    Ok(format!("FfiConverterType{}", struct_name.to_upper_camel_case()))
 }

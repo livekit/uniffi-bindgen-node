@@ -30,41 +30,51 @@
 
 
 import {
-  load,
-  DataType,
-  JsExternal,
-  open,
-  close,
-  arrayConstructor,
-  define,
-} from 'ffi-rs';
+  type UniffiByteArray,
+  type UniffiDuration,
+  AbstractFfiConverterByteArray,
+  FfiConverterArray,
+  FfiConverterBool,
+  FfiConverterDuration,
+  FfiConverterInt32,
+  FfiConverterMap,
+  FfiConverterOptional,
+  FfiConverterUInt32,
+  FfiConverterUInt64,
+  RustBuffer,
+  UniffiError,
+  UniffiInternalError,
+  UniffiRustCaller,
+  uniffiCreateFfiConverterString,
+  uniffiCreateRecord,
+  uniffiRustCallAsync,
+  uniffiTypeNameSymbol,
+  variantOrdinalSymbol,
+} from 'uniffi-bindgen-react-native';
 
-// FIXME: un hard code path and make it platform specific
-open({ library: 'lib{{ ci.crate_name() }}', path: "/Users/ryan/w/livekit/rust-sdks/target/release/liblivekit_uniffi.dylib" })
+// Get converters from the other files, if any.
+const uniffiCaller = new UniffiRustCaller(
+  () => new wasmBundle.RustCallStatus()
+);
 
-// const r = load({
-//     library: "liblivekit_uniffi", // path to the dynamic library file
-//     funcName: 'uniffi_livekit_uniffi_checksum_func_build_version', // the name of the function to call
-//     retType: DataType.I16, // the return value type
-//     paramsType: [], // the parameter types
-//     paramsValue: [] // the actual parameter values
-//     // freeResultMemory: true, // whether or not need to free the result of return value memory automatically, default is false
-// })
-// console.log('RESULT:', r);
+const uniffiIsDebug =
+  // @ts-ignore -- The process global might not be defined
+  typeof process !== 'object' ||
+  // @ts-ignore -- The process global might not be defined
+  process?.env?.NODE_ENV !== 'production' ||
+  false;
 
-const r = load({
-    library: "liblivekit_uniffi", // path to the dynamic library file
-    funcName: 'uniffi_livekit_uniffi_fn_func_generate_token', // the name of the function to call
-    retType: arrayConstructor({ type: DataType.U8Array, length: 10 }), // the return value type
-    paramsType: [DataType.U8Array, DataType.U8Array], // the parameter types
-    paramsValue: [Buffer.alloc(200), Buffer.alloc(200)] // the actual parameter values
-    // freeResultMemory: true, // whether or not need to free the result of return value memory automatically, default is false
-})
-console.log('RESULT:', r);
 
-// Release library memory when you're not using it.
-close('liblivekit_uniffi')
-
+const stringConverter = (() => {
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  return {
+    stringToBytes: (s: string) => encoder.encode(s),
+    bytesToString: (ab: UniffiByteArray) => decoder.decode(ab),
+    stringByteLength: (s: string) => encoder.encode(s).byteLength,
+  };
+})();
+const FfiConverterString = uniffiCreateFfiConverterString(stringConverter);
 
 
 
@@ -87,42 +97,59 @@ export type {{ record_def.name() | typescript_class_name }} = {
   {%- endfor %}
 }
 
-{#
-export const {{ record_def.name() }} = {
-  lift(input: Buffer, index = 0): [{{ record_def.name() }}, number] {
-    {%- match field.type_().borrow() -%}
-        {%- when Type::Int8 | Type::Int16 | Type::Int32 | Type::Int64 | Type::UInt8 | Type::UInt16 | Type::UInt32 | Type::UInt64 | Type::Float32 | Type::Float64 -%}
-            self.{{ field.name() }}.get_u64().1
-        {%- when FfiType::Int64 -%}
-            self.{{ field.name() }}.get_i64().0
-        {%- when FfiType::Struct(_) -%}
-            self.{{ field.name() }}.to_c_struct()
-        {%- when FfiType::RustBuffer(_) -%}
-            {
-                // FIXME: this is untested, check this to make sure it works once it gets generated
-                // in final output
-                let slice_u8 = self.{{ field.name() }}.as_ref();
-                let vec_u8 = slice_u8.to_vec();
-                RustBuffer::from_vec(vec_u8)
-            }
-        {%- when FfiType::RustCallStatus -%}
-            decode_uintarray_to_rust_call_status(&self.{{ field.name() }})
-        {%- else -%}
-            self.{{ field.name() }} /* FIXME: add more field handlers here! */
-    {%- endmatch -%}
+export const {{ record_def.name() | typescript_class_name }} = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<{{ record_def.name() | typescript_class_name }}, ReturnType<typeof defaults>>(
+      defaults
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link ApiCredentials}, with defaults specified
+     * in Rust, in the {@link {{ci.crate_name()}}} crate.
+     */
+    create,
 
-    index += 
-    {%- for field_def in record_def.fields() -%}
-        {% call docstring(field_def.docstring()) %}
-        {%- let type_ = field_def.as_type() %}
-        {{field_def.name() | typescript_var_name}}: {{field_def | typescript_type_name}};
-    {%- endfor %}
-  },
-  lower(input: {{ record_def.name() }}): Buffer {
-    // TODO!
-  },
-};
-#}
+    /**
+     * Create a frozen instance of {@link ApiCredentials}, with defaults specified
+     * in Rust, in the {@link {{ci.crate_name()}}} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link {{ci.crate_name()}}} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<{{ record_def.name() | typescript_class_name }}>,
+  });
+})();
+
+const {{ record_def.name() | typescript_ffi_converter_struct_enum_name }} = (() => {
+  type TypeName = {{ record_def.name() | typescript_class_name }};
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        {% for field_def in record_def.fields() -%}
+          {{ field_def.name() | typescript_var_name }}: {{ field_def.as_type().borrow() | typescript_ffi_converter_name }}.read(from),
+        {% endfor %}
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      {% for field_def in record_def.fields() -%}
+        {{ field_def.as_type().borrow() | typescript_ffi_converter_name }}.write(value.{{ field_def.name() | typescript_var_name }}, into);
+      {% endfor %}
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        {% for field_def in record_def.fields() -%}
+          {{ field_def.as_type().borrow() | typescript_ffi_converter_name }}.allocationSize(value.{{ field_def.name() | typescript_var_name }})
+          {%- if !loop.last %} +{% endif %}
+        {% endfor %}
+      );
+    }
+  }
+  return new FFIConverter();
+})();
 
 {% endfor %}
 
@@ -152,6 +179,36 @@ export type {{ enum_def.name() | typescript_class_name }} =
     {%- endif -%}
 {%- endfor %}
 
+export const {{ enum_def.name() | typescript_ffi_converter_struct_enum_name }} = (() => {
+  const ordinalConverter = FfiConverterInt32;
+  type TypeName = {{ enum_def.name() | typescript_class_name }};
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      // FIXME: this does not handle enum variants with associated fields right now!
+      switch (ordinalConverter.read(from)) {
+        {% for (index, variant) in enum_def.variants().iter().enumerate() -%}
+        case {{ index }}:
+          return "{{ variant.name() | typescript_var_name }}";
+        {% endfor -%}
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      switch (value) {
+        {% for (index, variant) in enum_def.variants().iter().enumerate() -%}
+        case "{{ variant.name() | typescript_var_name }}":
+          return ordinalConverter.write({{ index }}, into);
+        {% endfor -%}
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return ordinalConverter.allocationSize(0);
+    }
+  }
+  return new FFIConverter();
+})();
+
 {% endfor %}
 
 // ==========
@@ -179,6 +236,14 @@ export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() 
 // ==========
 // FFI Layer
 // ==========
+
+import { DataType, JsExternal, open, /* close, */ define } from 'ffi-rs';
+
+// FIXME: un hard code path and make it platform specific
+open({ library: 'lib{{ ci.crate_name() }}', path: "/Users/ryan/w/livekit/rust-sdks/target/release/liblivekit_uniffi.dylib" })
+// Release library memory when you're not using it.
+// close('liblivekit_uniffi')
+
 
 // Struct + Callback type definitions
 {%- for definition in ci.ffi_definitions() -%}
