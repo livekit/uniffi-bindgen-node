@@ -154,6 +154,24 @@ pub fn typescript_type_name(typ: &impl AsType, askama_values: &dyn askama::Value
     })
 }
 
+pub fn ffi_rs_type_name(typ: &impl AsType, askama_values: &dyn askama::Values) -> Result<String> {
+    Ok(match typ.as_type() {
+        Type::Int16 => "DataType.I16".into(),
+        Type::Int32 => "DataType.I32".into(),
+        Type::Int64 => "DataType.I64".into(),
+        Type::UInt8 => "DataType.U8".into(),
+        Type::String => "DataType.String".into(), // Note this is UTF-16
+        Type::Boolean => "DataType.Boolean".into(),
+        Type::Optional { inner_type } => {
+            format!("{} | undefined", ffi_rs_type_name(&inner_type, askama_values)?)
+        },
+        Type::Enum { name, .. } | Type::Record { name, .. } => name.to_pascal_case(),
+        Type::Object { name, imp, .. } => imp.rust_name_for(&name).to_pascal_case(),
+        Type::Custom { name, .. } => name.to_pascal_case(),
+        _ => format!("/* TODO: {:?} */", typ.as_type().name().ok_or("?")).into()
+    })
+}
+
 pub fn typescript_fn_name(raw_name: &str, _: &dyn askama::Values) -> Result<String> {
     Ok(raw_name.to_lower_camel_case())
 }
