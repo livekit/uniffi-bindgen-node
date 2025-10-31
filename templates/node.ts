@@ -25,6 +25,14 @@
 	{%- endfor -%}
 {%- endmacro %}
 
+function bufferToUint8Array(buf: Buffer): Uint8Array {
+  return new Uint8Array(buf.buffer);
+}
+
+function uint8ArrayToBuffer(array: Uint8Array): Buffer {
+  return Buffer.from(array);
+}
+
 
 
 
@@ -245,7 +253,7 @@ export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() 
 
           {%- if func_def.ffi_func().has_rust_call_status_arg() -%}
             {%- if !func_def.arguments().is_empty() %}, {% endif -%}
-            callStatus
+            uint8ArrayToBuffer(callStatus.bytes)
           {%- endif %}
         ]);
       // return nativeModule().ubrn_uniffi_livekit_uniffi_fn_func_generate_token(
