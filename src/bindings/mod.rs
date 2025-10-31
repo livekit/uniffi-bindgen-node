@@ -6,7 +6,7 @@ use serde::Deserialize;
 mod generator;
 mod filters;
 
-use crate::bindings::generator::{generate_node_bindings, Bindings};
+use crate::{bindings::generator::{Bindings, generate_node_bindings}, utils::write_with_dirs};
 
 pub struct NodeBindingGenerator {}
 
@@ -65,11 +65,14 @@ impl BindingGenerator for NodeBindingGenerator {
                 node_ts_file_contents,
             } = generate_node_bindings(&ci)?;
 
-            let napi_interop_file_path = settings.out_dir.join("src").join(format!("{}_napi_interop.rs", ci.namespace()));
-            fs::write(&napi_interop_file_path, napi_interop_rust_file_contents)?;
+            let napi_interop_file_path = settings
+                .out_dir
+                .join("src")
+                .join(format!("{}_napi_interop.rs", ci.namespace()));
+            write_with_dirs(&napi_interop_file_path, napi_interop_rust_file_contents)?;
 
             let node_ts_file_path = settings.out_dir.join(format!("{}_node.ts", ci.namespace()));
-            fs::write(&node_ts_file_path, node_ts_file_contents)?;
+            write_with_dirs(&node_ts_file_path, node_ts_file_contents)?;
 
             // let scaffolding_header_path = settings
             //     .out_dir

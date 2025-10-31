@@ -3,6 +3,7 @@ use camino::Utf8PathBuf;
 use clap::Parser;
 
 mod bindings;
+mod utils;
 
 /// UniFFI binding generator for Node.js
 #[derive(Parser, Debug)]
