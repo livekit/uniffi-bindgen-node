@@ -18,6 +18,7 @@ impl NodeBindingGenerator {
 
 #[derive(Default, Deserialize)]
 pub struct NodeBindingGeneratorConfig {
+    // TODO: Add Node-specific configuration options.
 }
 
 impl BindingGenerator for NodeBindingGenerator {
@@ -43,7 +44,7 @@ impl BindingGenerator for NodeBindingGenerator {
         settings: &GenerationSettings,
         components: &[uniffi_bindgen::Component<Self::Config>],
     ) -> Result<()> {
-        for uniffi_bindgen::Component { ci, config, .. } in components {
+        for uniffi_bindgen::Component { ci, config: _, .. } in components {
             println!("Component interface: {ci:#?}");
             // ci.object_definitions()[0].
 
