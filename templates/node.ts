@@ -25,12 +25,15 @@
 	{%- endfor -%}
 {%- endmacro %}
 
-function bufferToUint8Array(buf: Buffer): Uint8Array {
-  return new Uint8Array(buf.buffer);
+function rustBufferToUint8Array(buf: UniffiRustBuffer): Uint8Array {
+  // FIXME: do a ffi call here to return the data in UniffiRustBuffer, and then free it
+  // return new Uint8Array(buf.buffer);
 }
 
-function uint8ArrayToBuffer(array: Uint8Array): Buffer {
-  return Buffer.from(array);
+function uint8ArrayToRustBuffer(array: Uint8Array): UniffiRustBuffer {
+  const result = FFI_DYNAMIC_LIB.uniffi_new_rust_buffer([Buffer.from(array)]);
+  console.log('CREATE RUST BUFFER FOR:', array, '=>', result);
+  return result;
 }
 
 
@@ -463,6 +466,7 @@ const FFI_DYNAMIC_LIB = define({
 }) as {
   uniffi_get_call_status_size: (args: []) => number,
   uniffi_new_call_status: (args: []) => UniffiRustCallStatus,
+  uniffi_new_rust_buffer: (args: [Buffer]) => DataType_UniffiRustBuffer,
   uniffi_get_call_status_pointer: (args: []) => JsExternal,
   uniffi_get_call_status_code: (args: []) => number,
   uniffi_get_call_status_error_buf_byte_len: (args: []) => number,
