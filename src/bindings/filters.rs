@@ -171,12 +171,12 @@ pub fn typescript_ffi_type_name(ffi_type: &FfiType, askama_values: &dyn askama::
         FfiType::Float32 => "number".into(),
         FfiType::Float64 => "number".into(), // FIXME: is this right for f64? I am not sure `number` is big enough?
         // FfiType::RustArcPtr(_) => "void *".into(),
-        FfiType::RustBuffer(_) => "Buffer".into(),
+        FfiType::RustBuffer(_) => "/* RustBuffer */ Buffer".into(),
         FfiType::ForeignBytes => "JsExternal".into(),
         FfiType::Callback(name) => typescript_callback_name(name, askama_values)?,
         FfiType::Struct(name) => typescript_ffi_struct_name(name, askama_values)?,
-        FfiType::Handle => "/* handle */ bigint".into(),
-        FfiType::RustCallStatus => "/* RustCallStatus */ DataType.U8Array".into(),
+        FfiType::Handle => "/* handle */ Buffer".into(),
+        FfiType::RustCallStatus => "/* RustCallStatus */ Buffer".into(),
         FfiType::MutReference(inner) => format!("/* MutReference to {} */ JsExternal", typescript_ffi_type_name(inner, askama_values)?),
         FfiType::Reference(inner) => format!("/* Reference to {} */ JsExternal", typescript_ffi_type_name(inner, askama_values)?),
         FfiType::VoidPointer => "void".into(), // ???
@@ -200,7 +200,7 @@ pub fn typescript_ffi_datatype_name(ffi_type: &FfiType, askama_values: &dyn aska
         FfiType::ForeignBytes => "DataType.External".into(),
         FfiType::Callback(name) => format!("/* {name} */ DataType.Function"),
         FfiType::Struct(name) => format!("/* {} */ DataType.U8Array", typescript_ffi_struct_name(name, askama_values)?),
-        FfiType::Handle => "/* handle */ DataType.U64".into(),
+        FfiType::Handle => "/* handle */ DataType.U8Array".into(),
         FfiType::RustCallStatus => "/* RustCallStatus */ DataType.U8Array".into(),
         FfiType::MutReference(inner) => format!("/* MutReference to {} */ DataType.External", typescript_ffi_type_name(inner, askama_values)?),
         FfiType::Reference(inner) => format!("/* Reference to {} */ DataType.External", typescript_ffi_type_name(inner, askama_values)?),
@@ -241,6 +241,34 @@ pub fn typescript_ffi_converter_name(typ: &impl AsType, askama_values: &dyn aska
             typescript_ffi_converter_name(&value_type, askama_values)?,
         ),
         Type::Custom { name, .. } => format!("/* custom? */ {}", name.to_pascal_case()), // FIXME: what should this be?
+    })
+}
+
+pub fn typescript_ffi_converter_lift_with(target: String, askama_values: &dyn askama::Values, typ: &impl AsType) -> Result<String> {
+    Ok(match typ.as_type() {
+        Type::String | Type::Map { .. } | Type::Sequence { .. } | Type::Enum { .. } | Type::Record { .. } => {
+            format!("{}.lift(bufferToUint8Array({target}))", typescript_ffi_converter_name(typ, askama_values)?)
+        },
+        // Type::Object { name, imp, .. } => typescript_class_name(&imp.rust_name_for(&name), askama_values)?,
+        // Type::CallbackInterface { name, .. } => name.to_lower_camel_case(),
+        Type::Optional { inner_type } => {
+            format!("new FfiConverterOptional({}).lift(bufferToUint8Array({target}))", typescript_ffi_converter_name(&inner_type, askama_values)?)
+        },
+        _ => format!("{}.lift({target})", typescript_ffi_converter_name(typ, askama_values)?),
+    })
+}
+
+pub fn typescript_ffi_converter_lower_with(target: String, askama_values: &dyn askama::Values, typ: &impl AsType) -> Result<String> {
+    Ok(match typ.as_type() {
+        Type::String | Type::Map { .. } | Type::Sequence { .. } | Type::Enum { .. } | Type::Record { .. } => {
+            format!("uint8ArrayToBuffer({}.lower({target}))", typescript_ffi_converter_name(typ, askama_values)?)
+        },
+        // Type::Object { name, imp, .. } => typescript_class_name(&imp.rust_name_for(&name), askama_values)?,
+        // Type::CallbackInterface { name, .. } => name.to_lower_camel_case(),
+        Type::Optional { inner_type } => {
+            format!("uint8ArrayToBuffer(new FfiConverterOptional({}).lower({target}))", typescript_ffi_converter_name(&inner_type, askama_values)?)
+        },
+        _ => format!("{}.lower({target})", typescript_ffi_converter_name(typ, askama_values)?),
     })
 }
 

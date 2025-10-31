@@ -247,7 +247,7 @@ export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() 
     {%- endmatch %}
         return FFI_DYNAMIC_LIB.{{ func_def.ffi_func().name() }}([
           {% for arg in func_def.arguments() -%}
-            {{ arg.as_type().borrow() | typescript_ffi_converter_name }}.lower({{ arg.name() | typescript_var_name }})
+            {{ arg.name() | typescript_var_name | typescript_ffi_converter_lower_with(arg.as_type().borrow()) }}
             {%- if !loop.last %}, {% endif %}
           {%- endfor -%}
 
@@ -266,7 +266,7 @@ export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() 
   );
 
   {% if let Some(ret_type) = func_def.return_type() -%}
-    return {{ ret_type | typescript_ffi_converter_name }}.lift(returnValue);
+    return {{ "returnValue".into() | typescript_ffi_converter_lift_with(ret_type) }};
   {%- endif %}
 }
 
