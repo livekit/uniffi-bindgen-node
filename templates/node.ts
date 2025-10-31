@@ -62,7 +62,61 @@ import {
 
 // Get converters from the other files, if any.
 const uniffiCaller = new UniffiRustCaller(
-  () => new wasmBundle.RustCallStatus()
+  () => {
+    const rustCallStatus = {
+      get bytes() {
+        console.log('SIZE START:');
+        const size = FFI_DYNAMIC_LIB.uniffi_get_call_status_size([]);
+        console.log('SIZE END:', size);
+
+        console.log('POINTER START:');
+        const rawData = load({
+          library: 'lib{{ ci.crate_name() }}',
+          funcName: 'uniffi_get_call_status_pointer',
+          retType: arrayConstructor({ type: DataType.U8Array, length: size }),
+          paramsType: [],
+          paramsValue: [],
+        }) as Array<number>;
+        console.log('POINTER END:', rawData);
+
+        return new Uint8Array(rawData);
+      },
+
+      get code(): number {
+        console.log('GET CODE:');
+        return FFI_DYNAMIC_LIB.uniffi_get_call_status_code([]);
+      },
+
+      get errorBuf(): Uint8Array | undefined {
+        console.log('GET ERROR BUF LENGTH START:');
+        const byteLength = FFI_DYNAMIC_LIB.uniffi_get_call_status_error_buf_byte_len([]);
+        console.log('GET ERROR BUF LENGTH END:', byteLength);
+        if (byteLength === 0) {
+          return undefined;
+        }
+
+        console.log('GET ERROR BUF START:');
+        const rawData = load({
+          library: 'lib{{ ci.crate_name() }}',
+          funcName: 'uniffi_get_call_status_error_buf', // the name of the function to call
+          retType: arrayConstructor({ type: DataType.U8Array, length: byteLength }),
+          paramsType: [],
+          paramsValue: [],
+        }) as Array<number>;
+        console.log('GET ERROR BUF END:', rawData);
+
+        return new Uint8Array(rawData);
+      },
+      set errorBuf(_value: Uint8Array | null | undefined) {
+        throw new Error('errorBuf set not yet implemented!');
+      }
+
+      // free(): void;
+      // [Symbol.dispose](): void;
+    };
+    return rustCallStatus;
+    //new wasmBundle.RustCallStatus() // FIXME: what is this rust call status value?
+  }
 );
 
 const uniffiIsDebug =
@@ -239,7 +293,7 @@ export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() 
   {% match func_def.throws_type() -%}
     {%- when Some(err) -%}
       uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeAccessTokenError.lift.bind(FfiConverterTypeAccessTokenError),
+        /*liftError:*/ FfiConverterTypeAccessTokenError.lift.bind(FfiConverterTypeAccessTokenError), // FIXME: where does this error type come from?
         /*caller:*/ (callStatus) => {
     {%- else -%}
       uniffiCaller.rustCall(
@@ -277,7 +331,7 @@ export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() 
 // FFI Layer
 // ==========
 
-import { DataType, JsExternal, open, /* close, */ define } from 'ffi-rs';
+import { DataType, JsExternal, open, /* close, */ define, load, arrayConstructor } from 'ffi-rs';
 
 // FIXME: un hard code path and make it platform specific
 open({ library: 'lib{{ ci.crate_name() }}', path: "/Users/ryan/w/livekit/rust-sdks/target/release/liblivekit_uniffi.dylib" })
@@ -318,6 +372,32 @@ open({ library: 'lib{{ ci.crate_name() }}', path: "/Users/ryan/w/livekit/rust-sd
   * dynamic library. Using this manually from end-user javascript code is unsafe and this is not
   * recommended. */
 const FFI_DYNAMIC_LIB = define({
+    uniffi_get_call_status_pointer: {
+      library: "lib{{ ci.crate_name() }}",
+      retType: DataType.External,
+      paramsType: [],
+    },
+    uniffi_get_call_status_size: {
+      library: "lib{{ ci.crate_name() }}",
+      retType: DataType.U64,
+      paramsType: [],
+    },
+    uniffi_get_call_status_code: {
+      library: "lib{{ ci.crate_name() }}",
+      retType: DataType.U8,
+      paramsType: [],
+    },
+    uniffi_get_call_status_error_buf_byte_len: {
+      library: "lib{{ ci.crate_name() }}",
+      retType: DataType.U8,
+      paramsType: [],
+    },
+    uniffi_get_call_status_error_buf: {
+      library: "lib{{ ci.crate_name() }}",
+      retType: DataType.U64,
+      paramsType: [],
+    },
+
     {%- for definition in ci.ffi_definitions() %}
         {%- match definition %}
 
@@ -354,7 +434,8 @@ const FFI_DYNAMIC_LIB = define({
               {{ arg.type_().borrow() | typescript_ffi_datatype_name }}{% if !loop.last %}, {% endif %}
             {%- endfor %}
             {%-   if func.has_rust_call_status_arg() -%}
-            {%      if func.arguments().len() > 0 %}, {% endif %}/* rustCallStatus */ DataType.External
+            {%      if func.arguments().len() > 0 %}, {% endif -%}
+            {{ &FfiType::RustCallStatus | typescript_ffi_datatype_name }}
             {%-   endif %}
           ],
         },
@@ -364,6 +445,12 @@ const FFI_DYNAMIC_LIB = define({
 
     {%- endfor %}
 }) as {
+  uniffi_get_call_status_size: (args: []) => number,
+  uniffi_get_call_status_pointer: (args: []) => JsExternal,
+  uniffi_get_call_status_code: (args: []) => number,
+  uniffi_get_call_status_error_buf_byte_len: (args: []) => number,
+  uniffi_get_call_status_error_buf: (args: []) => JsExternal,
+
   {%- for definition in ci.ffi_definitions() %}
       {%- match definition %}
 
