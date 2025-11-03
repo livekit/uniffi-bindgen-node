@@ -330,15 +330,31 @@ export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() 
 // FFI Layer
 // ==========
 
-import { DataType, JsExternal, open, /* close, */ define, load, arrayConstructor, restorePointer, wrapPointer } from 'ffi-rs';
+import { DataType, JsExternal, open, /* close, */ define, load, arrayConstructor, restorePointer, wrapPointer, createPointer } from 'ffi-rs';
 
 // FIXME: un hard code path and make it platform specific
 open({ library: 'lib{{ ci.crate_name() }}', path: "/Users/ryan/w/livekit/rust-sdks/target/release/liblivekit_uniffi.dylib" })
 // Release library memory when you're not using it.
 // close('liblivekit_uniffi')
 
-
 // Struct + Callback type definitions
+type UniffiRustBuffer = { capacity: bigint, len: bigint, data: JsExternal };
+const DataType_UniffiRustBuffer = {
+  capacity: DataType.U64,
+  len: DataType.U64,
+  data: DataType.External,
+
+  ffiTypeTag: DataType.StackStruct,
+};
+
+type UniffiRustCallStatus = { code: number, errorBuf: UniffiRustBuffer };
+const DataType_UniffiRustCallStatus = {
+  code: DataType.U8,
+  errorBuf: DataType_UniffiRustBuffer,
+
+  ffiTypeTag: DataType.StackStruct,
+};
+
 {%- for definition in ci.ffi_definitions() -%}
   {%- match definition %}
     {%- when FfiDefinition::CallbackFunction(callback) %}
@@ -362,27 +378,20 @@ open({ library: 'lib{{ ci.crate_name() }}', path: "/Users/ryan/w/livekit/rust-sd
           {{field_def.name() | typescript_var_name}}: {{field_def.type_().borrow() | typescript_ffi_type_name}};
       {%- endfor %}
     };
+
+    const DataType_{{ struct_data.name() | typescript_ffi_struct_name }} = {
+      {% for field_def in struct_data.fields() -%}
+          {{field_def.name() | typescript_var_name}}: {{field_def.type_().borrow() | typescript_ffi_datatype_name}},
+      {% endfor %}
+
+      // Ensure that the struct is stack defined, without this ffi-rs isn't able to decode the
+      // struct properly
+      ffiTypeTag: DataType.StackStruct,
+    };
     {%- else -%}
   {%- endmatch %}
 {%- endfor %}
 
-
-type UniffiRustBuffer = { capacity: bigint, len: bigint, data: JsExternal };
-const DataType_UniffiRustBuffer = {
-  capacity: DataType.U64,
-  len: DataType.U64,
-  data: DataType.External,
-
-  ffiTypeTag: DataType.StackStruct,
-};
-
-type UniffiRustCallStatus = { code: number, errorBuf: UniffiRustBuffer };
-const DataType_UniffiRustCallStatus = {
-  code: DataType.U8,
-  errorBuf: DataType_UniffiRustBuffer,
-
-  ffiTypeTag: DataType.StackStruct,
-};
 
 // Actual FFI functions from dynamic library
 /** This direct / "extern C" type FFI interface is bound directly to the functions exposed by the
