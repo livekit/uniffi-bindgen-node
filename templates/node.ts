@@ -26,8 +26,13 @@
 {%- endmacro %}
 
 function rustBufferToUint8Array(buf: UniffiRustBuffer): Uint8Array {
-  // FIXME: do a ffi call here to return the data in UniffiRustBuffer, and then free it
-  // return new Uint8Array(buf.buffer);
+  const [contents] = restorePointer({
+    retType: [arrayConstructor({ type: DataType.U8Array, length: buf.len })],
+    paramsValue: wrapPointer([buf.data]),
+  });
+
+  // const contents = r.uniffi_free_rust_buffer([result]);
+  return new Uint8Array(contents);
 }
 
 function uint8ArrayToRustBuffer(array: Uint8Array): UniffiRustBuffer {
@@ -325,7 +330,7 @@ export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() 
 // FFI Layer
 // ==========
 
-import { DataType, JsExternal, open, /* close, */ define, load, arrayConstructor } from 'ffi-rs';
+import { DataType, JsExternal, open, /* close, */ define, load, arrayConstructor, restorePointer, wrapPointer } from 'ffi-rs';
 
 // FIXME: un hard code path and make it platform specific
 open({ library: 'lib{{ ci.crate_name() }}', path: "/Users/ryan/w/livekit/rust-sdks/target/release/liblivekit_uniffi.dylib" })
