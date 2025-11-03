@@ -367,12 +367,16 @@ const DataType_UniffiRustBuffer = {
   capacity: DataType.U64,
   len: DataType.U64,
   data: DataType.External,
+
+  ffiTypeTag: DataType.StackStruct,
 };
 
 type UniffiRustCallStatus = { code: number, errorBuf: UniffiRustBuffer };
 const DataType_UniffiRustCallStatus = {
   code: DataType.U8,
   errorBuf: DataType_UniffiRustBuffer,
+
+  ffiTypeTag: DataType.StackStruct,
 };
 
 // Actual FFI functions from dynamic library
