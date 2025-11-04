@@ -25,7 +25,7 @@
 	{%- endfor -%}
 {%- endmacro %}
 
-function rustBufferToUint8Array(buf: UniffiRustBuffer): Uint8Array {
+function rustBufferToUint8Array(buf: UniffiRustBufferStruct): Uint8Array {
   if (buf.len > Number.MAX_VALUE) {
     throw new Error(`Error converting rust buffer to uint8array - rust buffer length is ${buf.len}, which cannot be represented as a Number safely.`)
   }
@@ -39,7 +39,7 @@ function rustBufferToUint8Array(buf: UniffiRustBuffer): Uint8Array {
   return new Uint8Array(contents);
 }
 
-function uint8ArrayToRustBuffer(array: Uint8Array): UniffiRustBuffer {
+function uint8ArrayToRustBuffer(array: Uint8Array): UniffiRustBufferStruct {
   const [dataPointer] = createPointer({
     paramsType: [arrayConstructor({ type: DataType.U8Array, length: array.length })],
     paramsValue: [array],
@@ -321,10 +321,14 @@ export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() 
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
     {%- endmatch %}
+        {% for arg in func_def.arguments() -%}
+          let {{ arg.name() | typescript_argument_var_name }} = {{ arg.name() | typescript_var_name | typescript_ffi_converter_lower_with(arg.as_type().borrow()) }};
+        {% endfor -%}
+
         console.log("{{ func_def.ffi_func().name() }} call starting...");
         const returnValue = FFI_DYNAMIC_LIB.{{ func_def.ffi_func().name() }}([
           {% for arg in func_def.arguments() -%}
-            {{ arg.name() | typescript_var_name | typescript_ffi_converter_lower_with(arg.as_type().borrow()) }}
+            {{ arg.name() | typescript_argument_var_name }}
             {%- if !loop.last %}, {% endif %}
           {%- endfor -%}
 
@@ -334,12 +338,12 @@ export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() 
           {%- endif %}
         ]);
         console.log("{{ func_def.ffi_func().name() }} return value:", returnValue{%- if func_def.ffi_func().has_rust_call_status_arg() -%}, 'Call status:', callStatus.getValue(){%- endif -%});
+
+        {% for arg in func_def.arguments() -%}
+          {{ arg.name() | typescript_argument_var_name | typescript_ffi_converter_lower_with_cleanup(arg.as_type().borrow()) }}
+        {% endfor -%}
+
         return returnValue;
-      // return nativeModule().ubrn_uniffi_livekit_uniffi_fn_func_generate_token(
-      //   FfiConverterTypeTokenOptions.lower(options),
-      //   FfiConverterOptionalTypeApiCredentials.lower(credentials),
-      //   callStatus
-      // );
       },
       /*liftString:*/ {{ &Type::String | typescript_ffi_converter_name }}.lift
   );
@@ -367,8 +371,6 @@ import {
   wrapPointer,
   unwrapPointer,
   createPointer,
-  freePointer,
-  PointerType,
 } from 'ffi-rs';
 
 // FIXME: un hard code path and make it platform specific
@@ -377,8 +379,8 @@ open({ library: 'lib{{ ci.crate_name() }}', path: "/Users/ryan/w/livekit/rust-sd
 // close('liblivekit_uniffi')
 
 // Struct + Callback type definitions
-type UniffiRustBuffer = { capacity: bigint, len: bigint, data: JsExternal };
-const DataType_UniffiRustBuffer = {
+type UniffiRustBufferStruct = { capacity: bigint, len: bigint, data: JsExternal };
+const DataType_UniffiRustBufferStruct = {
   capacity: DataType.U64,
   len: DataType.U64,
   data: DataType.External,
@@ -386,10 +388,84 @@ const DataType_UniffiRustBuffer = {
   ffiTypeTag: DataType.StackStruct,
 };
 
-type UniffiRustCallStatus = { code: number, errorBuf: UniffiRustBuffer };
+/** A RustBuffer represents a series of bytes stored on the rust end of the uniffi interface.
+  * It is often used to encode more complex function parameters / return values like structs,
+  * optionals, etc.
+  *
+  * `RustBuffer`s are behind the scenes backed by manually managed memory, and must be explictly
+  * freed when no longer used to ensure no memory is leaked. TODO: set up finalizationregistry.
+  * */
+class UniffiRustBuffer implements UniffiRustBufferStruct {
+  len: bigint;
+  capacity: bigint;
+  data: JsExternal;
+
+  // Pointer to RustBuffer struct instance on rust end
+  private pointer: JsExternal | null;
+
+  private constructor(len: bigint, capacity: bigint, data: JsExternal, pointer: JsExternal | null) {
+    this.len = len;
+    this.capacity = capacity;
+    this.data = data;
+
+    this.pointer = pointer;
+  }
+
+  static fromStackAllocatedStruct(struct: UniffiRustBufferStruct) {
+    return new UniffiRustBuffer(struct.len, struct.capacity, struct.data, null /* the raw struct is stack allocated, so no pointer */);
+  }
+
+  static allocateWithBytes(bytes: Uint8Array) {
+    const [dataPointer] = createPointer({
+      paramsType: [arrayConstructor({ type: DataType.U8Array, length: bytes.length })],
+      paramsValue: [bytes],
+    });
+
+    const pointer = FFI_DYNAMIC_LIB.uniffi_new_rust_buffer([dataPointer, bytes.length]);
+
+    const [ dataPointerUnwrapped ] = unwrapPointer([dataPointer]);
+
+    return new UniffiRustBuffer(
+      bytes.length, // len
+      bytes.length, // capacity
+      dataPointerUnwrapped, // data
+      pointer, // pointer
+    );
+  }
+
+  toUint8Array() {
+    if (this.len > Number.MAX_VALUE) {
+      throw new Error(`Error converting rust buffer to uint8array - rust buffer length is ${this.len}, which cannot be represented as a Number safely.`)
+    }
+
+    const [contents] = restorePointer({
+      retType: [arrayConstructor({ type: DataType.U8Array, length: Number(this.len) })],
+      paramsValue: wrapPointer([this.data]),
+    });
+
+    return new Uint8Array(contents);
+  }
+
+  consumeIntoUint8Array() {
+    const result = this.toUint8Array();
+    this.free();
+    return result;
+  }
+
+  free() {
+    if (!this.pointer) {
+      throw new Error('Error freeing UniffiRustBuffer - already previously freed! Double freeing is not allowed.');
+    }
+
+    FFI_DYNAMIC_LIB.uniffi_free_rust_buffer([this.pointer]);
+    this.pointer = null;
+  }
+}
+
+type UniffiRustCallStatus = { code: number, errorBuf: UniffiRustBufferStruct };
 const DataType_UniffiRustCallStatus = {
   code: DataType.U8,
-  errorBuf: DataType_UniffiRustBuffer,
+  errorBuf: DataType_UniffiRustBufferStruct,
 
   ffiTypeTag: DataType.StackStruct,
 };
@@ -447,6 +523,12 @@ const FFI_DYNAMIC_LIB = define({
       retType: DataType.External,
       paramsType: [DataType.External, DataType.U64],
     },
+    uniffi_free_rust_buffer: {
+      library: "lib{{ ci.crate_name() }}",
+      retType: DataType.Void,
+      paramsType: [DataType.External],
+    },
+
     uniffi_get_call_status_pointer: {
       library: "lib{{ ci.crate_name() }}",
       retType: DataType.External,
@@ -469,7 +551,7 @@ const FFI_DYNAMIC_LIB = define({
     // },
     uniffi_get_call_status_error_buf: {
       library: "lib{{ ci.crate_name() }}",
-      retType: DataType_UniffiRustBuffer,
+      retType: DataType_UniffiRustBufferStruct,
       paramsType: [],
     },
 
@@ -523,13 +605,14 @@ const FFI_DYNAMIC_LIB = define({
 }) as {
   uniffi_new_call_status: (args: []) => JsExternal,
   uniffi_new_rust_buffer: (args: [JsExternal, bigint]) => JsExternal,
+  uniffi_free_rust_buffer: (args: [JsExternal]) => void,
 
   uniffi_get_call_status_size: (args: []) => number,
   uniffi_get_call_status_pointer: (args: []) => JsExternal,
   uniffi_get_call_status_code: (args: []) => number,
   uniffi_get_call_status_error_buf_byte_len: (args: []) => number,
   // uniffi_get_call_status_error_buf: (args: []) => JsExternal,
-  uniffi_get_call_status_error_buf: (args: []) => UniffiRustBuffer,
+  uniffi_get_call_status_error_buf: (args: []) => UniffiRustBufferStruct,
 
   {%- for definition in ci.ffi_definitions() %}
       {%- match definition %}
