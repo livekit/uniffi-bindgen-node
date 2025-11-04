@@ -25,47 +25,6 @@
 	{%- endfor -%}
 {%- endmacro %}
 
-function rustBufferToUint8Array(buf: UniffiRustBufferStruct): Uint8Array {
-  if (buf.len > Number.MAX_VALUE) {
-    throw new Error(`Error converting rust buffer to uint8array - rust buffer length is ${buf.len}, which cannot be represented as a Number safely.`)
-  }
-
-  const [contents] = restorePointer({
-    retType: [arrayConstructor({ type: DataType.U8Array, length: Number(buf.len) })],
-    paramsValue: wrapPointer([buf.data]),
-  });
-
-  // const contents = r.uniffi_free_rust_buffer([result]);
-  return new Uint8Array(contents);
-}
-
-function uint8ArrayToRustBuffer(array: Uint8Array): UniffiRustBufferStruct {
-  const [dataPointer] = createPointer({
-    paramsType: [arrayConstructor({ type: DataType.U8Array, length: array.length })],
-    paramsValue: [array],
-  });
-
-  // console.log('INPUT:', array, 'DATA POINTER:', dataPointer, 'RESOLVED:', restorePointer({
-  //   retType: [arrayConstructor({ type: DataType.U8Array, length: array.length })],
-  //   paramsValue: [dataPointer],
-  // }));
-
-  const pointer = FFI_DYNAMIC_LIB.uniffi_new_rust_buffer([dataPointer, array.length]);
-
-  // console.log('HERE');
-  const [ dataPointerUnwrapped ] = unwrapPointer([dataPointer]);
-
-  const rustBuffer = {
-    pointer, // Pointer to struct instance on rust end
-
-    capacity: array.length,
-    len: array.length,
-    data: dataPointerUnwrapped,
-  };
-  // console.log("RUST BUFFER", rustBuffer, rustBufferToUint8Array(rustBuffer));
-  return rustBuffer;
-}
-
 
 
 
@@ -94,7 +53,7 @@ import {
 } from 'uniffi-bindgen-react-native';
 
 // Get converters from the other files, if any.
-const uniffiCaller = new UniffiRustCaller<{ code: number, errorBuf?: UniffiByteArray, pointer: JsExternal, getValue: () => UniffiRustCallStatus }>(
+const uniffiCaller = new UniffiRustCaller<{ code: number, errorBuf?: UniffiByteArray, pointer: JsExternal, getValue: () => UniffiRustCallStatusStruct }>(
   () => {
     // FIXME: make sure to free this so memory doesn't leak, right now that is not being done!
     const pointer = FFI_DYNAMIC_LIB.uniffi_new_call_status([]);
@@ -103,7 +62,7 @@ const uniffiCaller = new UniffiRustCaller<{ code: number, errorBuf?: UniffiByteA
     const rustCallStatus = {
       pointer,
 
-      getValue(): UniffiRustCallStatus {
+      getValue(): UniffiRustCallStatusStruct {
         const [ contents ] = restorePointer({
           retType: [DataType_UniffiRustCallStatus],
           paramsValue: [pointer],
@@ -131,7 +90,7 @@ const uniffiCaller = new UniffiRustCaller<{ code: number, errorBuf?: UniffiByteA
         // That seems logical given the return type but check existing bindgens and see if
         // that is what they do here.
 
-        return rustBufferToUint8Array(value.errorBuf);
+        return (new UniffiRustBufferValue(value.errorBuf)).toUint8Array();
       },
       // free(): void;
       // [Symbol.dispose](): void;
@@ -388,49 +347,15 @@ const DataType_UniffiRustBufferStruct = {
   ffiTypeTag: DataType.StackStruct,
 };
 
-/** A RustBuffer represents a series of bytes stored on the rust end of the uniffi interface.
-  * It is often used to encode more complex function parameters / return values like structs,
-  * optionals, etc.
-  *
-  * `RustBuffer`s are behind the scenes backed by manually managed memory, and must be explictly
-  * freed when no longer used to ensure no memory is leaked. TODO: set up finalizationregistry.
-  * */
-class UniffiRustBuffer implements UniffiRustBufferStruct {
+class UniffiRustBufferValue {
   len: bigint;
   capacity: bigint;
   data: JsExternal;
 
-  // Pointer to RustBuffer struct instance on rust end
-  private pointer: JsExternal | null;
-
-  private constructor(len: bigint, capacity: bigint, data: JsExternal, pointer: JsExternal | null) {
-    this.len = len;
-    this.capacity = capacity;
-    this.data = data;
-
-    this.pointer = pointer;
-  }
-
-  static fromStackAllocatedStruct(struct: UniffiRustBufferStruct) {
-    return new UniffiRustBuffer(struct.len, struct.capacity, struct.data, null /* the raw struct is stack allocated, so no pointer */);
-  }
-
-  static allocateWithBytes(bytes: Uint8Array) {
-    const [dataPointer] = createPointer({
-      paramsType: [arrayConstructor({ type: DataType.U8Array, length: bytes.length })],
-      paramsValue: [bytes],
-    });
-
-    const pointer = FFI_DYNAMIC_LIB.uniffi_new_rust_buffer([dataPointer, bytes.length]);
-
-    const [ dataPointerUnwrapped ] = unwrapPointer([dataPointer]);
-
-    return new UniffiRustBuffer(
-      bytes.length, // len
-      bytes.length, // capacity
-      dataPointerUnwrapped, // data
-      pointer, // pointer
-    );
+  constructor(struct: UniffiRustBufferStruct) {
+    this.len = struct.len;
+    this.capacity = struct.capacity;
+    this.data = struct.data;
   }
 
   toUint8Array() {
@@ -445,6 +370,41 @@ class UniffiRustBuffer implements UniffiRustBufferStruct {
 
     return new Uint8Array(contents);
   }
+}
+
+/** A RustBuffer represents a series of bytes stored on the rust end of the uniffi interface.
+  * It is often used to encode more complex function parameters / return values like structs,
+  * optionals, etc.
+  *
+  * `RustBuffer`s are behind the scenes backed by manually managed memory, and must be explictly
+  * freed when no longer used to ensure no memory is leaked. TODO: set up finalizationregistry.
+  * */
+class UniffiRustBufferPointer extends UniffiRustBufferValue {
+  // Pointer to RustBuffer struct instance on rust end
+  private pointer: JsExternal | null;
+
+  private constructor(len: bigint, capacity: bigint, data: JsExternal, pointer: JsExternal | null) {
+    super({ data, len, capacity });
+    this.pointer = pointer;
+  }
+
+  static allocateWithBytes(bytes: Uint8Array) {
+    const [dataPointer] = createPointer({
+      paramsType: [arrayConstructor({ type: DataType.U8Array, length: bytes.length })],
+      paramsValue: [bytes],
+    });
+
+    const pointer = FFI_DYNAMIC_LIB.uniffi_new_rust_buffer([dataPointer, bytes.length]);
+
+    const [ dataPointerUnwrapped ] = unwrapPointer([dataPointer]);
+
+    return new UniffiRustBufferPointer(
+      bytes.length, // len
+      bytes.length, // capacity
+      dataPointerUnwrapped, // data
+      pointer, // pointer
+    );
+  }
 
   consumeIntoUint8Array() {
     const result = this.toUint8Array();
@@ -454,7 +414,7 @@ class UniffiRustBuffer implements UniffiRustBufferStruct {
 
   free() {
     if (!this.pointer) {
-      throw new Error('Error freeing UniffiRustBuffer - already previously freed! Double freeing is not allowed.');
+      throw new Error('Error freeing UniffiRustBufferPointer - already previously freed! Double freeing is not allowed.');
     }
 
     FFI_DYNAMIC_LIB.uniffi_free_rust_buffer([this.pointer]);
@@ -462,7 +422,7 @@ class UniffiRustBuffer implements UniffiRustBufferStruct {
   }
 }
 
-type UniffiRustCallStatus = { code: number, errorBuf: UniffiRustBufferStruct };
+type UniffiRustCallStatusStruct = { code: number, errorBuf: UniffiRustBufferValue };
 const DataType_UniffiRustCallStatus = {
   code: DataType.U8,
   errorBuf: DataType_UniffiRustBufferStruct,
