@@ -40,17 +40,29 @@ function rustBufferToUint8Array(buf: UniffiRustBuffer): Uint8Array {
 }
 
 function uint8ArrayToRustBuffer(array: Uint8Array): UniffiRustBuffer {
-  // const result = FFI_DYNAMIC_LIB.uniffi_new_rust_buffer([Buffer.from(array)]);
-  // console.log('CREATE RUST BUFFER FOR:', array, '=>', result);
-  // return result;
-
-  const [pointer] = wrapPointer(createPointer({
+  const [dataPointer] = createPointer({
     paramsType: [arrayConstructor({ type: DataType.U8Array, length: array.length })],
     paramsValue: [array],
-  }));
+  });
 
-  const rustBuffer = { capacity: array.length, len: array.length, data: pointer };
-  console.log("RUST BUFFER", rustBuffer);
+  // console.log('INPUT:', array, 'DATA POINTER:', dataPointer, 'RESOLVED:', restorePointer({
+  //   retType: [arrayConstructor({ type: DataType.U8Array, length: array.length })],
+  //   paramsValue: [dataPointer],
+  // }));
+
+  const pointer = FFI_DYNAMIC_LIB.uniffi_new_rust_buffer([dataPointer, array.length]);
+
+  // console.log('HERE');
+  const [ dataPointerUnwrapped ] = unwrapPointer([dataPointer]);
+
+  const rustBuffer = {
+    pointer, // Pointer to struct instance on rust end
+
+    capacity: array.length,
+    len: array.length,
+    data: dataPointerUnwrapped,
+  };
+  // console.log("RUST BUFFER", rustBuffer, rustBufferToUint8Array(rustBuffer));
   return rustBuffer;
 }
 
@@ -101,11 +113,11 @@ const uniffiCaller = new UniffiRustCaller<{ code: number, errorBuf?: UniffiByteA
 
       free() {
         // FIXME: this is untested, make sure it works!
-        freePointer({
-          paramsType: [DataType.External],
-          paramsValue: [pointer],
-          pointerType: PointerType.RsPointer
-        });
+        // freePointer({
+        //   paramsType: [DataType.External],
+        //   paramsValue: [pointer],
+        //   pointerType: PointerType.RsPointer
+        // });
       },
 
       get code(): number {
@@ -344,7 +356,20 @@ export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() 
 // FFI Layer
 // ==========
 
-import { DataType, JsExternal, open, /* close, */ define, load, arrayConstructor, restorePointer, wrapPointer, createPointer } from 'ffi-rs';
+import {
+  DataType,
+  JsExternal,
+  open, /* close, */
+  define,
+  load,
+  arrayConstructor,
+  restorePointer,
+  wrapPointer,
+  unwrapPointer,
+  createPointer,
+  freePointer,
+  PointerType,
+} from 'ffi-rs';
 
 // FIXME: un hard code path and make it platform specific
 open({ library: 'lib{{ ci.crate_name() }}', path: "/Users/ryan/w/livekit/rust-sdks/target/release/liblivekit_uniffi.dylib" })
@@ -419,8 +444,8 @@ const FFI_DYNAMIC_LIB = define({
     },
     uniffi_new_rust_buffer: {
       library: "lib{{ ci.crate_name() }}",
-      retType: DataType_UniffiRustBuffer,
-      paramsType: [DataType.U8Array],
+      retType: DataType.External,
+      paramsType: [DataType.External, DataType.U64],
     },
     uniffi_get_call_status_pointer: {
       library: "lib{{ ci.crate_name() }}",
@@ -496,9 +521,10 @@ const FFI_DYNAMIC_LIB = define({
 
     {%- endfor %}
 }) as {
-  uniffi_get_call_status_size: (args: []) => number,
   uniffi_new_call_status: (args: []) => JsExternal,
-  uniffi_new_rust_buffer: (args: [Buffer]) => UniffiRustBuffer,
+  uniffi_new_rust_buffer: (args: [JsExternal, bigint]) => JsExternal,
+
+  uniffi_get_call_status_size: (args: []) => number,
   uniffi_get_call_status_pointer: (args: []) => JsExternal,
   uniffi_get_call_status_code: (args: []) => number,
   uniffi_get_call_status_error_buf_byte_len: (args: []) => number,
