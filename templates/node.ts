@@ -26,8 +26,12 @@
 {%- endmacro %}
 
 function rustBufferToUint8Array(buf: UniffiRustBuffer): Uint8Array {
+  if (buf.len > Number.MAX_VALUE) {
+    throw new Error(`Error converting rust buffer to uint8array - rust buffer length is ${buf.len}, which cannot be represented as a Number safely.`)
+  }
+
   const [contents] = restorePointer({
-    retType: [arrayConstructor({ type: DataType.U8Array, length: buf.len })],
+    retType: [arrayConstructor({ type: DataType.U8Array, length: Number(buf.len) })],
     paramsValue: wrapPointer([buf.data]),
   });
 
