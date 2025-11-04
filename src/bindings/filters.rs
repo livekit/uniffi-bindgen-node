@@ -171,7 +171,7 @@ pub fn typescript_ffi_type_name(ffi_type: &FfiType, askama_values: &dyn askama::
         FfiType::Float32 => "number".into(),
         FfiType::Float64 => "number".into(), // FIXME: is this right for f64? I am not sure `number` is big enough?
         // FfiType::RustArcPtr(_) => "void *".into(),
-        FfiType::RustBuffer(_) => "/* RustBuffer */ UniffiRustBuffer".into(),
+        FfiType::RustBuffer(_) => "/* RustBuffer */ UniffiRustBufferStruct".into(),
         FfiType::ForeignBytes => "JsExternal".into(),
         FfiType::Callback(name) => typescript_callback_name(name, askama_values)?,
         FfiType::Struct(name) => typescript_ffi_struct_name(name, askama_values)?,
@@ -196,7 +196,7 @@ pub fn typescript_ffi_datatype_name(ffi_type: &FfiType, askama_values: &dyn aska
         FfiType::Float32 => "/* f32 */ DataType.Float".into(),
         FfiType::Float64 => "/* f64 */ DataType.Float".into(), // FIXME: is this right for f64? I am not sure `number` is big enough?
         // FfiType::RustArcPtr(_) => "void *".into(),
-        FfiType::RustBuffer(_) => "DataType_UniffiRustBuffer".into(),
+        FfiType::RustBuffer(_) => "DataType_UniffiRustBufferStruct".into(),
         FfiType::ForeignBytes => "DataType.External".into(),
         FfiType::Callback(name) => format!("/* {name} */ DataType.Function"),
         FfiType::Struct(name) => format!("/* {} */ DataType.U8Array", typescript_ffi_struct_name(name, askama_values)?), // FIXME: this should make struct definitions in ffi-rs
@@ -261,14 +261,28 @@ pub fn typescript_ffi_converter_lift_with(target: String, askama_values: &dyn as
 pub fn typescript_ffi_converter_lower_with(target: String, askama_values: &dyn askama::Values, typ: &impl AsType) -> Result<String> {
     Ok(match typ.as_type() {
         Type::String | Type::Map { .. } | Type::Sequence { .. } | Type::Enum { .. } | Type::Record { .. } => {
-            format!("uint8ArrayToRustBuffer({}.lower({target}))", typescript_ffi_converter_name(typ, askama_values)?)
+            format!("UniffiRustBuffer.allocateWithBytes({}.lower({target}))", typescript_ffi_converter_name(typ, askama_values)?)
         },
         // Type::Object { name, imp, .. } => typescript_class_name(&imp.rust_name_for(&name), askama_values)?,
         // Type::CallbackInterface { name, .. } => name.to_lower_camel_case(),
         Type::Optional { inner_type } => {
-            format!("uint8ArrayToRustBuffer(new FfiConverterOptional({}).lower({target}))", typescript_ffi_converter_name(&inner_type, askama_values)?)
+            format!("UniffiRustBuffer.allocateWithBytes(new FfiConverterOptional({}).lower({target}))", typescript_ffi_converter_name(&inner_type, askama_values)?)
         },
         _ => format!("{}.lower({target})", typescript_ffi_converter_name(typ, askama_values)?),
+    })
+}
+
+pub fn typescript_ffi_converter_lower_with_cleanup(target: String, _: &dyn askama::Values, typ: &impl AsType) -> Result<String> {
+    Ok(match typ.as_type() {
+        Type::String | Type::Map { .. } | Type::Sequence { .. } | Type::Enum { .. } | Type::Record { .. } => {
+            format!("{target}.free();")
+        },
+        // Type::Object { name, imp, .. } => typescript_class_name(&imp.rust_name_for(&name), askama_values)?,
+        // Type::CallbackInterface { name, .. } => name.to_lower_camel_case(),
+        Type::Optional { .. } => {
+            format!("{target}.free();")
+        },
+        _ => "".into(),
     })
 }
 
@@ -278,6 +292,11 @@ pub fn typescript_fn_name(raw_name: &str, _: &dyn askama::Values) -> Result<Stri
 
 pub fn typescript_var_name(raw_name: &str, _: &dyn askama::Values) -> Result<String> {
     Ok(raw_name.to_lower_camel_case())
+}
+
+/// The name of a given argument to a extern c ffi function call
+pub fn typescript_argument_var_name(raw_name: &str, values: &dyn askama::Values) -> Result<String> {
+    Ok(format!("{}Arg", typescript_var_name(raw_name, values)?))
 }
 
 pub fn typescript_class_name(raw_name: &str, _: &dyn askama::Values) -> Result<String> {
