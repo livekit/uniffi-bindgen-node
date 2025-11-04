@@ -36,9 +36,18 @@ function rustBufferToUint8Array(buf: UniffiRustBuffer): Uint8Array {
 }
 
 function uint8ArrayToRustBuffer(array: Uint8Array): UniffiRustBuffer {
-  const result = FFI_DYNAMIC_LIB.uniffi_new_rust_buffer([Buffer.from(array)]);
-  console.log('CREATE RUST BUFFER FOR:', array, '=>', result);
-  return result;
+  // const result = FFI_DYNAMIC_LIB.uniffi_new_rust_buffer([Buffer.from(array)]);
+  // console.log('CREATE RUST BUFFER FOR:', array, '=>', result);
+  // return result;
+
+  const [pointer] = wrapPointer(createPointer({
+    paramsType: [arrayConstructor({ type: DataType.U8Array, length: array.length })],
+    paramsValue: [array],
+  }));
+
+  const rustBuffer = { capacity: array.length, len: array.length, data: pointer };
+  console.log("RUST BUFFER", rustBuffer);
+  return rustBuffer;
 }
 
 
@@ -69,44 +78,45 @@ import {
 } from 'uniffi-bindgen-react-native';
 
 // Get converters from the other files, if any.
-const uniffiCaller = new UniffiRustCaller(
+const uniffiCaller = new UniffiRustCaller<{ code: number, errorBuf?: UniffiByteArray, pointer: JsExternal, getValue: () => UniffiRustCallStatus }>(
   () => {
-    // const callStatus = FFI_DYNAMIC_LIB.uniffi_new_call_status([]);
+    // FIXME: make sure to free this so memory doesn't leak, right now that is not being done!
+    const pointer = FFI_DYNAMIC_LIB.uniffi_new_call_status([]);
+    console.log('INITIAL VALUE:', pointer);
+
     const rustCallStatus = {
+      pointer,
+
+      getValue(): UniffiRustCallStatus {
+        const [ contents ] = restorePointer({
+          retType: [DataType_UniffiRustCallStatus],
+          paramsValue: [pointer],
+        });
+        return contents;
+      },
+
+      free() {
+        // FIXME: this is untested, make sure it works!
+        freePointer({
+          paramsType: [DataType.External],
+          paramsValue: [pointer],
+          pointerType: PointerType.RsPointer
+        });
+      },
+
       get code(): number {
-        const code = FFI_DYNAMIC_LIB.uniffi_get_call_status_code([]);
-        console.log('GET CODE:', code);
-        return code;
+        return this.getValue().code;
       },
 
-      // get errorBuf(): Uint8Array | undefined {
-      get errorBuf(): UniffiRustBuffer | undefined {
-        // console.log('GET ERROR BUF LENGTH START:');
-        // const byteLength = FFI_DYNAMIC_LIB.uniffi_get_call_status_error_buf_byte_len([]);
-        // console.log('GET ERROR BUF LENGTH END:', byteLength);
-        // if (byteLength === 0) {
-        //   return undefined;
-        // }
+      get errorBuf(): UniffiByteArray | undefined {
+        const value = this.getValue();
 
-        // console.log('GET ERROR BUF START:');
-        // const rawData = load({
-        //   library: 'lib{{ ci.crate_name() }}',
-        //   funcName: 'uniffi_get_call_status_error_buf', // the name of the function to call
-        //   retType: arrayConstructor({ type: DataType.U8Array, length: byteLength }),
-        //   paramsType: [],
-        //   paramsValue: [],
-        // }) as Array<number>;
-        // console.log('GET ERROR BUF END:', rawData);
+        // FIXME: should value.code be checked for `0` here and `undefined` returned?
+        // That seems logical given the return type but check existing bindgens and see if
+        // that is what they do here.
 
-        const rawData = FFI_DYNAMIC_LIB.uniffi_get_call_status_error_buf([]);
-        console.log('RAW DATA:', rawData);
-
-        return rawData;//new Uint8Array(rawData);
+        return rustBufferToUint8Array(value.errorBuf);
       },
-      set errorBuf(_value: Uint8Array | null | undefined) {
-        throw new Error('errorBuf set not yet implemented!');
-      }
-
       // free(): void;
       // [Symbol.dispose](): void;
     };
@@ -304,10 +314,10 @@ export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() 
 
           {%- if func_def.ffi_func().has_rust_call_status_arg() -%}
             {%- if !func_def.arguments().is_empty() %}, {% endif -%}
-            callStatus
+            callStatus.pointer
           {%- endif %}
         ]);
-        console.log("{{ func_def.ffi_func().name() }} return value:", returnValue);
+        console.log("{{ func_def.ffi_func().name() }} return value:", returnValue{%- if func_def.ffi_func().has_rust_call_status_arg() -%}, 'Call status:', callStatus.getValue(){%- endif -%});
         return returnValue;
       // return nativeModule().ubrn_uniffi_livekit_uniffi_fn_func_generate_token(
       //   FfiConverterTypeTokenOptions.lower(options),
@@ -400,7 +410,7 @@ const DataType_UniffiRustCallStatus = {
 const FFI_DYNAMIC_LIB = define({
     uniffi_new_call_status: {
       library: "lib{{ ci.crate_name() }}",
-      retType: DataType_UniffiRustCallStatus,
+      retType: DataType.External,
       paramsType: [],
     },
     uniffi_new_rust_buffer: {
@@ -483,8 +493,8 @@ const FFI_DYNAMIC_LIB = define({
     {%- endfor %}
 }) as {
   uniffi_get_call_status_size: (args: []) => number,
-  uniffi_new_call_status: (args: []) => UniffiRustCallStatus,
-  uniffi_new_rust_buffer: (args: [Buffer]) => DataType_UniffiRustBuffer,
+  uniffi_new_call_status: (args: []) => JsExternal,
+  uniffi_new_rust_buffer: (args: [Buffer]) => UniffiRustBuffer,
   uniffi_get_call_status_pointer: (args: []) => JsExternal,
   uniffi_get_call_status_code: (args: []) => number,
   uniffi_get_call_status_error_buf_byte_len: (args: []) => number,
