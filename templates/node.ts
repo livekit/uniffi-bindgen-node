@@ -1,24 +1,4 @@
-{% macro docstring(optional_docstring) %}
-    {%- if let Some(docstring) = optional_docstring -%}
-/**
-{%- for line in docstring.split("\n") %}
-  * {{line}}
-{%- endfor %}
-  */
-    {%- endif -%}
-{% endmacro %}
-
-{% macro function_arg_list(func) %}
-	{%- for arg in func.arguments() -%}
-	    {%- let type_ = arg.as_type() -%}
-	    {{ arg.name() | typescript_var_name }}: {{ arg | typescript_type_name }}
-		{%- if !loop.last %}, {% endif -%}
-	{%- endfor -%}
-  {%- if func.is_async() -%}
-    {%- if !func.arguments().is_empty() %}, {% endif -%}
-    asyncOpts_?: { signal: AbortSignal }
-  {%- endif -%}
-{%- endmacro %}
+{%- import "macros.ts" as ts %}
 
 {%- macro function_return_type(func_def) -%}
   {%- if let Some(ret_type) = func_def.return_type() -%}: {# space #}
@@ -284,10 +264,10 @@ import FFI_DYNAMIC_LIB, {
 // ==========
 
 {% for record_def in ci.record_definitions() %}
-{% call docstring(record_def.docstring()) %}
+{% call ts::docstring(record_def.docstring()) %}
 export type {{ record_def.name() | typescript_class_name }} = {
   {%- for field_def in record_def.fields() -%}
-    {% call docstring(field_def.docstring()) %}
+    {% call ts::docstring(field_def.docstring()) %}
     {%- let type_ = field_def.as_type() %}
     {{field_def.name() | typescript_var_name}}: {{field_def | typescript_type_name}};
   {%- endfor %}
@@ -354,10 +334,10 @@ const {{ record_def.name() | typescript_ffi_converter_struct_enum_object_name }}
 // ==========
 
 {% for enum_def in ci.enum_definitions() %}
-{% call docstring(enum_def.docstring()) %}
+{% call ts::docstring(enum_def.docstring()) %}
 export type {{ enum_def.name() | typescript_class_name }} =
 {%- for variant in enum_def.variants() %}
-    {% call docstring(variant.docstring()) %}
+    {% call ts::docstring(variant.docstring()) %}
     {%- if !variant.fields().is_empty() -%}
     | {
       variant: "{{variant.name() | typescript_var_name }}",
@@ -602,9 +582,9 @@ const {{ object_def.name() | typescript_ffi_converter_struct_enum_object_name }}
 // ==========
 
 {% for func_def in ci.function_definitions() %}
-{% call docstring(func_def.docstring()) %}
+{% call ts::docstring(func_def.docstring()) %}
 export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() | typescript_fn_name }}(
-  {%- call function_arg_list(func_def) -%}
+  {%- call ts::param_list(func_def) -%}
 ){%- if let Some(ret_type) = func_def.return_type() -%}: {% if func_def.is_async() -%}
   Promise<{%- endif -%}{{ ret_type | typescript_type_name }}{%- if func_def.is_async() -%}>{%- endif -%}
 {%- endif %} {
