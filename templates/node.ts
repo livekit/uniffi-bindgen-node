@@ -459,17 +459,16 @@ class UniffiRustCallStatusPointer implements UniffiRustCallStatusStruct {
     // That seems logical given the return type but check existing bindgens and see if
     // that is what they do here.
 
-    return (new UniffiRustBufferValue(value.errorBuf)).toUint8Array();
+    // FIXME: instead of consumeIntoUint8Array here, just do toUint8Array and make this be explictly
+    // freed. But to do this, I need to dig more into how `UniffiRustCaller` works, there must be
+    // some way it does the free explictly.
+    return (new UniffiRustBufferValue(value.errorBuf)).consumeIntoUint8Array();
   }
 
   free() {
     // FIXME: this is untested, make sure it works!
-    // freePointer({
-    //   paramsType: [DataType.External],
-    //   paramsValue: [pointer],
-    //   pointerType: PointerType.RsPointer
-    // });
-    // this._pointer = null;
+    // const value = this.getValue();
+    // return (new UniffiRustBufferValue(value.errorBuf)).destroy();
   }
   // [Symbol.dispose](): void;
 }
