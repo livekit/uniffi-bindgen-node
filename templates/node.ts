@@ -421,6 +421,12 @@ const DataType_UniffiRustCallStatus = {
 };
 
 class UniffiRustCallStatusPointer implements UniffiRustCallStatusStruct {
+  // static cleanupRegistry =
+  //   typeof FinalizationRegistry !== 'undefined' &&
+  //   new FinalizationRegistry((handle) => {
+  //     console.log('HANDLE', handle);
+  //   });
+
   private _pointer: JsExternal | null;
   get pointer(): JsExternal {
     if (!this._pointer) {
@@ -431,6 +437,7 @@ class UniffiRustCallStatusPointer implements UniffiRustCallStatusStruct {
 
   private constructor(pointer: JsExternal) {
     this._pointer = pointer;
+    // UniffiRustCallStatusPointer.cleanupRegistry.register(this, "handle");
   }
 
   static allocate() {
@@ -449,7 +456,13 @@ class UniffiRustCallStatusPointer implements UniffiRustCallStatusStruct {
   }
 
   get code(): number {
-    return this.getValue().code;
+    const value = this.getValue();
+
+    // Note: do this free here to temporarily hack around no explicit `.free()` being done by
+    // UniffiRustCaller on this object
+    // FFI_DYNAMIC_LIB.uniffi_free_call_status([this.pointer]);
+
+    return value.code;
   }
 
   get errorBuf(): UniffiByteArray | undefined {
@@ -462,7 +475,9 @@ class UniffiRustCallStatusPointer implements UniffiRustCallStatusStruct {
     // FIXME: instead of consumeIntoUint8Array here, just do toUint8Array and make this be explictly
     // freed. But to do this, I need to dig more into how `UniffiRustCaller` works, there must be
     // some way it does the free explictly.
-    return (new UniffiRustBufferValue(value.errorBuf)).consumeIntoUint8Array();
+    const array = (new UniffiRustBufferValue(value.errorBuf)).consumeIntoUint8Array();
+    FFI_DYNAMIC_LIB.uniffi_free_call_status([this.pointer]);
+    return array;
   }
 
   free() {
@@ -526,16 +541,26 @@ const FFI_DYNAMIC_LIB = define({
       retType: DataType.External,
       paramsType: [DataType.External, DataType.U64],
     },
-    // uniffi_free_rust_buffer: {
-    //   library: "lib{{ ci.crate_name() }}",
-    //   retType: DataType.Void,
-    //   paramsType: [DataType.External],
-    // },
+    uniffi_free_call_status: {
+      library: "lib{{ ci.crate_name() }}",
+      retType: DataType.Void,
+      paramsType: [DataType.External],
+    },
     uniffi_destroy_rust_buffer: {
       library: "lib{{ ci.crate_name() }}",
       retType: DataType.Void,
       paramsType: [DataType_UniffiRustBufferStruct],
     },
+
+
+
+
+    // uniffi_free_rust_buffer: {
+    //   library: "lib{{ ci.crate_name() }}",
+    //   retType: DataType.Void,
+    //   paramsType: [DataType.External],
+    // },
+
 
     uniffi_get_call_status_pointer: {
       library: "lib{{ ci.crate_name() }}",
@@ -613,9 +638,10 @@ const FFI_DYNAMIC_LIB = define({
 }) as {
   uniffi_new_call_status: (args: []) => JsExternal,
   uniffi_new_rust_buffer: (args: [JsExternal, bigint]) => JsExternal,
-  // uniffi_free_rust_buffer: (args: [JsExternal]) => void,
+  uniffi_free_call_status: (args: [JsExternal]) => void,
   uniffi_destroy_rust_buffer: (args: [UniffiRustBufferStruct]) => void,
 
+  // uniffi_free_rust_buffer: (args: [JsExternal]) => void,
   uniffi_get_call_status_size: (args: []) => number,
   uniffi_get_call_status_pointer: (args: []) => JsExternal,
   uniffi_get_call_status_code: (args: []) => number,
