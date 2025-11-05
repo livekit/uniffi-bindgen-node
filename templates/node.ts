@@ -526,11 +526,11 @@ const FFI_DYNAMIC_LIB = define({
       retType: DataType.External,
       paramsType: [DataType.External, DataType.U64],
     },
-    uniffi_free_rust_buffer: {
-      library: "lib{{ ci.crate_name() }}",
-      retType: DataType.Void,
-      paramsType: [DataType.External],
-    },
+    // uniffi_free_rust_buffer: {
+    //   library: "lib{{ ci.crate_name() }}",
+    //   retType: DataType.Void,
+    //   paramsType: [DataType.External],
+    // },
     uniffi_destroy_rust_buffer: {
       library: "lib{{ ci.crate_name() }}",
       retType: DataType.Void,
@@ -613,7 +613,7 @@ const FFI_DYNAMIC_LIB = define({
 }) as {
   uniffi_new_call_status: (args: []) => JsExternal,
   uniffi_new_rust_buffer: (args: [JsExternal, bigint]) => JsExternal,
-  uniffi_free_rust_buffer: (args: [JsExternal]) => void,
+  // uniffi_free_rust_buffer: (args: [JsExternal]) => void,
   uniffi_destroy_rust_buffer: (args: [UniffiRustBufferStruct]) => void,
 
   uniffi_get_call_status_size: (args: []) => number,
