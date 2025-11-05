@@ -347,16 +347,16 @@ class UniffiRustBufferValue implements UniffiRustBufferStruct {
 
   consumeIntoUint8Array() {
     const result = this.toUint8Array();
-    this.free();
+    this.destroy();
     return result;
   }
 
-  free() {
+  destroy() {
     if (!this._data) {
-      throw new Error('Error freeing UniffiRustBufferPointer - already previously freed! Double freeing is not allowed.');
+      throw new Error('Error destroying UniffiRustBufferValue - already previously destroyed! Double freeing is not allowed.');
     }
 
-    FFI_DYNAMIC_LIB.uniffi_free_rust_buffer([this._data]);
+    FFI_DYNAMIC_LIB.uniffi_destroy_rust_buffer([{ len: this.len, capacity: this.capacity, data: this._data }]);
     this._data = null;
   }
 }
@@ -400,9 +400,8 @@ class UniffiRustBufferPointer extends UniffiRustBufferValue {
       throw new Error('Error freeing UniffiRustBufferPointer - already previously freed! Double freeing is not allowed.');
     }
 
-    super.free();
-
     FFI_DYNAMIC_LIB.uniffi_free_rust_buffer([this.pointer]);
+
     this.pointer = null;
   }
 }
@@ -527,6 +526,11 @@ const FFI_DYNAMIC_LIB = define({
       retType: DataType.Void,
       paramsType: [DataType.External],
     },
+    uniffi_destroy_rust_buffer: {
+      library: "lib{{ ci.crate_name() }}",
+      retType: DataType.Void,
+      paramsType: [DataType_UniffiRustBufferStruct],
+    },
 
     uniffi_get_call_status_pointer: {
       library: "lib{{ ci.crate_name() }}",
@@ -605,6 +609,7 @@ const FFI_DYNAMIC_LIB = define({
   uniffi_new_call_status: (args: []) => JsExternal,
   uniffi_new_rust_buffer: (args: [JsExternal, bigint]) => JsExternal,
   uniffi_free_rust_buffer: (args: [JsExternal]) => void,
+  uniffi_destroy_rust_buffer: (args: [UniffiRustBufferStruct]) => void,
 
   uniffi_get_call_status_size: (args: []) => number,
   uniffi_get_call_status_pointer: (args: []) => JsExternal,
