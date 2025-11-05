@@ -6,12 +6,10 @@
 	{%- endfor -%}
 {%- endmacro %}
 
-{% macro docstring(optional_docstring) %}
-    {%- if let Some(docstring) = optional_docstring -%}
-/**
-{%- for line in docstring.split("\n") %}
-  * {{line}}
-{%- endfor %}
-  */
-    {%- endif -%}
-{% endmacro %}
+{%- macro docstring(defn, indent_level) %}
+{%- match defn.docstring() %}
+{%- when Some(s) %}
+{{ s | typescript_docstring(indent_level) }}
+{%- else %}
+{%- endmatch %}
+{%- endmacro %}

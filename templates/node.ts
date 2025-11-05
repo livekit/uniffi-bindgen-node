@@ -264,10 +264,10 @@ import FFI_DYNAMIC_LIB, {
 // ==========
 
 {% for record_def in ci.record_definitions() %}
-{% call ts::docstring(record_def.docstring()) %}
+{% call ts::docstring(record_def, 0) %}
 export type {{ record_def.name() | typescript_class_name }} = {
   {%- for field_def in record_def.fields() -%}
-    {% call ts::docstring(field_def.docstring()) %}
+    {% call ts::docstring(field_def, 0) %}
     {%- let type_ = field_def.as_type() %}
     {{field_def.name() | typescript_var_name}}: {{field_def | typescript_type_name}};
   {%- endfor %}
@@ -334,11 +334,11 @@ const {{ record_def.name() | typescript_ffi_converter_struct_enum_object_name }}
 // ==========
 
 {% for enum_def in ci.enum_definitions() %}
-{% call ts::docstring(enum_def.docstring()) %}
+{%- call ts::docstring(enum_def, 0) %}
 export type {{ enum_def.name() | typescript_class_name }} =
-{%- for variant in enum_def.variants() %}
-    {% call ts::docstring(variant.docstring()) %}
-    {%- if !variant.fields().is_empty() -%}
+    {%- for variant in enum_def.variants() %}
+    {%- call ts::docstring(variant, 4) %}
+    {% if !variant.fields().is_empty() -%}
     | {
       variant: "{{variant.name() | typescript_var_name }}",
       values: {
@@ -349,10 +349,10 @@ export type {{ enum_def.name() | typescript_class_name }} =
         {%- endfor %}
     }
     }
-    {%- else -%}
+    {% else %}
     | "{{variant.name() | typescript_var_name -}}"
-    {%- endif -%}
-{%- endfor %}
+    {%- endif %}
+    {%- endfor %}
 
 export const {{ enum_def.name() | typescript_ffi_converter_struct_enum_object_name }} = (() => {
   const ordinalConverter = FfiConverterInt32;
@@ -582,7 +582,7 @@ const {{ object_def.name() | typescript_ffi_converter_struct_enum_object_name }}
 // ==========
 
 {% for func_def in ci.function_definitions() %}
-{% call ts::docstring(func_def.docstring()) %}
+{% call ts::docstring(func_def, 0) %}
 export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() | typescript_fn_name }}(
   {%- call ts::param_list(func_def) -%}
 ){%- if let Some(ret_type) = func_def.return_type() -%}: {% if func_def.is_async() -%}
