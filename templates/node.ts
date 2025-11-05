@@ -400,7 +400,13 @@ class UniffiRustBufferPointer extends UniffiRustBufferValue {
       throw new Error('Error freeing UniffiRustBufferPointer - already previously freed! Double freeing is not allowed.');
     }
 
-    FFI_DYNAMIC_LIB.uniffi_free_rust_buffer([this.pointer]);
+    const [ structValue ] = restorePointer({
+      retType: [DataType_UniffiRustBufferStruct],
+      paramsValue: [this.pointer],
+    });
+    FFI_DYNAMIC_LIB.uniffi_destroy_rust_buffer([structValue]);
+
+    // FFI_DYNAMIC_LIB.uniffi_free_rust_buffer([this.pointer]);
 
     this.pointer = null;
   }
