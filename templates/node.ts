@@ -90,7 +90,7 @@ const uniffiCaller = new UniffiRustCaller<{ code: number, errorBuf?: UniffiByteA
         // That seems logical given the return type but check existing bindgens and see if
         // that is what they do here.
 
-        return (new UniffiRustBufferValue(value.errorBuf)).toUint8Array();
+        return (new UniffiRustBufferValue(value.errorBuf)).consumeIntoUint8Array();
       },
       // free(): void;
       // [Symbol.dispose](): void;
@@ -347,15 +347,30 @@ const DataType_UniffiRustBufferStruct = {
   ffiTypeTag: DataType.StackStruct,
 };
 
-class UniffiRustBufferValue {
-  len: bigint;
-  capacity: bigint;
-  data: JsExternal;
+/** A RustBufferValue represents a series of bytes stored on the rust end of the uniffi interface.
+  * It is often used to encode more complex function parameters / return values like structs,
+  * optionals, etc.
+  *
+  * `RustBufferValue`s are behind the scenes backed by manually managed memory on the rust end, and
+  * must be explictly freed when no longer used to ensure no memory is leaked.
+  * TODO: set up finalizationregistry.
+  * */
+class UniffiRustBufferValue implements UniffiRustBufferStruct {
+  readonly len: bigint;
+  readonly capacity: bigint;
+
+  private _data: JsExternal | null;
+  get data(): JsExternal {
+    if (!this._data) {
+      throw new Error('Error getting data for UniffiRustBufferValue - data has been freed! This is not allowed.');
+    }
+    return this._data;
+  }
 
   constructor(struct: UniffiRustBufferStruct) {
     this.len = struct.len;
     this.capacity = struct.capacity;
-    this.data = struct.data;
+    this._data = struct.data;
   }
 
   toUint8Array() {
@@ -370,20 +385,35 @@ class UniffiRustBufferValue {
 
     return new Uint8Array(contents);
   }
+
+  consumeIntoUint8Array() {
+    const result = this.toUint8Array();
+    this.free();
+    return result;
+  }
+
+  free() {
+    if (!this._data) {
+      throw new Error('Error freeing UniffiRustBufferPointer - already previously freed! Double freeing is not allowed.');
+    }
+
+    FFI_DYNAMIC_LIB.uniffi_free_rust_buffer([this._data]);
+    this._data = null;
+  }
 }
 
-/** A RustBuffer represents a series of bytes stored on the rust end of the uniffi interface.
-  * It is often used to encode more complex function parameters / return values like structs,
-  * optionals, etc.
+/** A UniffiRustBufferPointer represents a pointer to a {@link UniffiRustBufferValue} which is located on
+  * the heap. This is used mainly for passing parameters to function calls.
   *
-  * `RustBuffer`s are behind the scenes backed by manually managed memory, and must be explictly
-  * freed when no longer used to ensure no memory is leaked. TODO: set up finalizationregistry.
+  * `UniffiRustBufferPointer`s are behind the scenes backed by manually managed memory on the rust end, and
+  * must be explictly freed when no longer used to ensure no memory is leaked.
+  * TODO: set up finalizationregistry.
   * */
 class UniffiRustBufferPointer extends UniffiRustBufferValue {
   // Pointer to RustBuffer struct instance on rust end
   private pointer: JsExternal | null;
 
-  private constructor(len: bigint, capacity: bigint, data: JsExternal, pointer: JsExternal | null) {
+  private constructor(len: bigint, capacity: bigint, data: JsExternal, pointer: JsExternal) {
     super({ data, len, capacity });
     this.pointer = pointer;
   }
@@ -406,16 +436,12 @@ class UniffiRustBufferPointer extends UniffiRustBufferValue {
     );
   }
 
-  consumeIntoUint8Array() {
-    const result = this.toUint8Array();
-    this.free();
-    return result;
-  }
-
   free() {
     if (!this.pointer) {
       throw new Error('Error freeing UniffiRustBufferPointer - already previously freed! Double freeing is not allowed.');
     }
+
+    super.free();
 
     FFI_DYNAMIC_LIB.uniffi_free_rust_buffer([this.pointer]);
     this.pointer = null;
