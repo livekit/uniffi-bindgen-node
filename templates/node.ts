@@ -53,50 +53,9 @@ import {
 } from 'uniffi-bindgen-react-native';
 
 // Get converters from the other files, if any.
-const uniffiCaller = new UniffiRustCaller<{ code: number, errorBuf?: UniffiByteArray, pointer: JsExternal, getValue: () => UniffiRustCallStatusStruct }>(
+const uniffiCaller = new UniffiRustCaller<UniffiRustCallStatusPointer>(
   () => {
-    // FIXME: make sure to free this so memory doesn't leak, right now that is not being done!
-    const pointer = FFI_DYNAMIC_LIB.uniffi_new_call_status([]);
-    console.log('INITIAL VALUE:', pointer);
-
-    const rustCallStatus = {
-      pointer,
-
-      getValue(): UniffiRustCallStatusStruct {
-        const [ contents ] = restorePointer({
-          retType: [DataType_UniffiRustCallStatus],
-          paramsValue: [pointer],
-        });
-        return contents;
-      },
-
-      free() {
-        // FIXME: this is untested, make sure it works!
-        // freePointer({
-        //   paramsType: [DataType.External],
-        //   paramsValue: [pointer],
-        //   pointerType: PointerType.RsPointer
-        // });
-      },
-
-      get code(): number {
-        return this.getValue().code;
-      },
-
-      get errorBuf(): UniffiByteArray | undefined {
-        const value = this.getValue();
-
-        // FIXME: should value.code be checked for `0` here and `undefined` returned?
-        // That seems logical given the return type but check existing bindgens and see if
-        // that is what they do here.
-
-        return (new UniffiRustBufferValue(value.errorBuf)).consumeIntoUint8Array();
-      },
-      // free(): void;
-      // [Symbol.dispose](): void;
-    };
-    return rustCallStatus;
-    //new wasmBundle.RustCallStatus() // FIXME: what is this rust call status value?
+    return UniffiRustCallStatusPointer.allocate();
   }
 );
 
@@ -448,13 +407,67 @@ class UniffiRustBufferPointer extends UniffiRustBufferValue {
   }
 }
 
-type UniffiRustCallStatusStruct = { code: number, errorBuf: UniffiRustBufferValue };
+type UniffiRustCallStatusStruct = { code: number, errorBuf?: UniffiByteArray };
 const DataType_UniffiRustCallStatus = {
   code: DataType.U8,
   errorBuf: DataType_UniffiRustBufferStruct,
 
   ffiTypeTag: DataType.StackStruct,
 };
+
+class UniffiRustCallStatusPointer implements UniffiRustCallStatusStruct {
+  private _pointer: JsExternal | null;
+  get pointer(): JsExternal {
+    if (!this._pointer) {
+      throw new Error('Error resolving pointer for UniffiRustCallStatusPointer - pointer has been freed! This is not allowed.');
+    }
+    return this._pointer;
+  }
+
+  private constructor(pointer: JsExternal) {
+    this._pointer = pointer;
+  }
+
+  static allocate() {
+    // FIXME: make sure to free this so memory doesn't leak, right now that is not being done!
+    const pointer = FFI_DYNAMIC_LIB.uniffi_new_call_status([]);
+    return new UniffiRustCallStatusPointer(pointer);
+  }
+
+  // FIXME: make this private, right now it is public so it can be logged for debugging
+  getValue(): UniffiRustCallStatusStruct {
+    const [ contents ] = restorePointer({
+      retType: [DataType_UniffiRustCallStatus],
+      paramsValue: [this.pointer],
+    });
+    return contents;
+  }
+
+  get code(): number {
+    return this.getValue().code;
+  }
+
+  get errorBuf(): UniffiByteArray | undefined {
+    const value = this.getValue();
+
+    // FIXME: should value.code be checked for `0` here and `undefined` returned?
+    // That seems logical given the return type but check existing bindgens and see if
+    // that is what they do here.
+
+    return (new UniffiRustBufferValue(value.errorBuf)).toUint8Array();
+  }
+
+  free() {
+    // FIXME: this is untested, make sure it works!
+    // freePointer({
+    //   paramsType: [DataType.External],
+    //   paramsValue: [pointer],
+    //   pointerType: PointerType.RsPointer
+    // });
+    // this._pointer = null;
+  }
+  // [Symbol.dispose](): void;
+}
 
 {%- for definition in ci.ffi_definitions() -%}
   {%- match definition %}
