@@ -358,7 +358,6 @@ const {{ record_def.name() | typescript_ffi_converter_struct_enum_object_name }}
 export type {{ enum_def.name() | typescript_class_name }} =
 {%- for variant in enum_def.variants() %}
     {% call docstring(variant.docstring()) %}
-
     {%- if !variant.fields().is_empty() -%}
     | {
       variant: "{{variant.name() | typescript_var_name }}",
@@ -368,7 +367,7 @@ export type {{ enum_def.name() | typescript_class_name }} =
           {{field_def.name() | typescript_var_name}}_: {{field_def | typescript_type_name}}
           {%- if !loop.last %}, {% endif -%}
         {%- endfor %}
-      }
+    }
     }
     {%- else -%}
     | "{{variant.name() | typescript_var_name -}}"

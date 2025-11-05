@@ -181,3 +181,7 @@ pub fn typescript_ffi_converter_struct_enum_object_name(struct_name: &str, _: &d
 pub fn typescript_ffi_object_factory_name(object_name: &str, values: &dyn askama::Values) -> Result<String> {
     Ok(format!("uniffiType{}ObjectFactory", typescript_class_name(object_name, values)?))
 }
+
+pub fn default_if_empty(s: &str, _: &dyn askama::Values, default: &str) -> Result<String> {
+    Ok(if s.is_empty() { default.to_string() } else { s.to_string() })
+}
