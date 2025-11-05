@@ -340,12 +340,18 @@ export type {{ enum_def.name() | typescript_class_name }} =
     {%- call ts::docstring(variant, 4) %}
     {% if !variant.fields().is_empty() -%}
     | {
-      variant: "{{variant.name() | typescript_var_name }}",
-      values: {
-        {%- for field_def in variant.fields() -%}
-          {%- let type_ = field_def.as_type() %}
-          {{field_def.name() | typescript_var_name}}_: {{field_def | typescript_type_name}}
-          {%- if !loop.last %}, {% endif -%}
+    variant: "{{variant.name() | typescript_var_name }}",
+    values: {
+        {%- for (field_index, field_def) in variant.fields().iter().enumerate() -%}
+
+        {%- call ts::docstring(field_def, 8) %}
+        {%- if field_def.name().is_empty() -%}
+          {{ field_index }}: {{ field_def | typescript_type_name }}
+        {%- else -%}
+          {{ field_def.name() | typescript_var_name }}: {{ field_def | typescript_type_name }}
+        {%- endif -%}
+
+        {%- if !loop.last %}, {% endif -%}
         {%- endfor %}
     }
     }
