@@ -309,8 +309,8 @@ const DataType_UniffiRustBufferStruct = {
   ffiTypeTag: DataType.StackStruct,
 };
 
-/** A UniffiRustBufferValue represents stack allocated structure containing a series of bytes
-  * stored on the rust end of the uniffi interface most likely on the heap.
+/** A UniffiRustBufferValue represents stack allocated structure containing pointer to series of
+  * bytes most likely on the heap, along with the size of that data in bytes.
   *
   * It is often used to encode more complex function parameters / return values like structs,
   * optionals, etc.
