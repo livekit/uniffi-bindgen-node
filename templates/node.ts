@@ -269,12 +269,7 @@ export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() 
         cleanupLastPollCallbackPointer();
 
         console.log("{{ func_def.ffi_func().name() }} async poll:", handle, callback, callbackData);
-        const wrappedCallback = (callbackData: bigint, pollCodeRaw: number) => {
-          // NOTE: ffi-rs doesn't support a DataType.I8 value under the hood, so instead `pollCode`
-          // is being returned as a DataType.U8 as it is the same byte size. The below code
-          // does the conversion from U8 -> I8.
-          const pollCode = ((pollCodeRaw & 0b10000000) > 0 ? -1 : 1) * (pollCodeRaw >> 1);
-
+        const wrappedCallback = (callbackData: bigint, pollCode: number) => {
           console.log('{{ func_def.ffi_func().name() }} async poll callback fired with:', callbackData, pollCode);
           callback(
             BigInt(callbackData), /* FIXME: why must I convert callbackData from number -> bigint here? It looks like even though it is typed as DataType.U64 callbackData is passed as a number? */
