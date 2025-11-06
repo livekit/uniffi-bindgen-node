@@ -505,18 +505,17 @@ class UniffiRustCallStatus {
 
   toStruct() {
     if (!this.struct || !this.errorBuf) {
-      throw new Error('Error resolving pointer for UniffiRustCallStatusNew - struct has already been freed! This is not allowed.');
+      throw new Error('Error getting struct form of UniffiRustCallStatusNew - struct has already been freed! This is not allowed.');
     }
     return this.struct;
   }
 
   free() {
-    console.log('FREE CALLED');
+    console.log('UniffiRustCallStatus FREE CALLED');
     if (!this.struct || !this.errorBuf) {
-      throw new Error('Error resolving pointer for UniffiRustCallStatusNew - struct has already been freed! This is not allowed.');
+      throw new Error('Error freeing UniffiRustCallStatusNew - already been freed! This is not allowed.');
     }
 
-    // FIXME: this is untested, make sure it works!
     this.errorBuf.destroy();
     this.errorBuf = null;
     this.struct = null;
@@ -561,15 +560,14 @@ class StructPointer<Struct extends object, StructDataType> {
   }
 
   free() {
-    console.log('FREE CALLED');
+    console.log(`StructPointer ${this.structName} FREE CALLED`);
     if (!this._pointer) {
       throw new Error(`Error resolving pointer for ${this.structName} - pointer has already been freed! This is not allowed.`);
     }
 
-    // FIXME: this is untested, make sure it works!
     freePointer({
       paramsType: [this.dataType],
-      paramsValue: this._pointer,
+      paramsValue: [this._pointer],
       pointerType: PointerType.RsPointer,
     });
     this._pointer = null;
@@ -596,12 +594,12 @@ class UniffiRustCallStatusFacade {
   }
 
   static allocate() {
-    // const buffer = UniffiRustBufferValueNew.allocateEmpty();
-    // const struct = { code: 0, errorBuf: buffer.toStruct() };
-
     const value = UniffiRustCallStatus.allocate();
-
-    const structPointer = new StructPointer(value.toStruct(), DataType_UniffiRustCallStatus, 'UniffiRustCallStatusPointerNew');
+    const structPointer = new StructPointer(
+      value.toStruct(),
+      DataType_UniffiRustCallStatus,
+      'UniffiRustCallStatusFacade',
+    );
 
     return new UniffiRustCallStatusFacade(structPointer, value);
   }
@@ -622,7 +620,7 @@ class UniffiRustCallStatusFacade {
     // UniffiRustCaller on this object
     // FFI_DYNAMIC_LIB.uniffi_free_call_status([this.pointer]);
 
-    // this.free();
+    this.free();
 
     return value.code;
   }
@@ -639,21 +637,16 @@ class UniffiRustCallStatusFacade {
   }
 
   free() {
-    console.log('FREE CALLED');
+    console.log('UniffiRustCallStatusFacade FREE CALLED');
     if (!this.structPointer || !this.callStatus) {
-      throw new Error('Error resolving pointer for UniffiRustCallStatusPointerNew - pointer has already been freed! This is not allowed.');
+      throw new Error('Error freeing UniffiRustCallStatusFacade - it has already been freed! This is not allowed.');
     }
 
-    // FIXME: this is untested, make sure it works!
     this.structPointer.free();
     this.structPointer = null;
 
     this.callStatus.free();
     this.callStatus = null;
-  }
-
-  [Symbol.dispose]() {
-    this.free();
   }
 }
 
