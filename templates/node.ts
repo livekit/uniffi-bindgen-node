@@ -492,7 +492,6 @@ class StructPointer<Struct extends object, StructDataType> {
     this.dataType = dataType;
     this.structName = structName;
 
-    // FIXME: make sure to free this so memory doesn't leak, right now that is not being done!
     const [ pointer ] = createPointer({
       paramsType: [this.dataType],
       paramsValue: [this.struct],
@@ -651,21 +650,6 @@ class UniffiRustCallStatusFacade {
   * dynamic library. Using this manually from end-user javascript code is unsafe and this is not
   * recommended. */
 const FFI_DYNAMIC_LIB = define({
-    uniffi_new_call_status: {
-      library: "lib{{ ci.crate_name() }}",
-      retType: DataType.External,
-      paramsType: [],
-    },
-    uniffi_new_rust_buffer: {
-      library: "lib{{ ci.crate_name() }}",
-      retType: DataType.External,
-      paramsType: [DataType.External, DataType.U64],
-    },
-    uniffi_free_call_status: {
-      library: "lib{{ ci.crate_name() }}",
-      retType: DataType.Void,
-      paramsType: [DataType.External],
-    },
     uniffi_destroy_rust_buffer: {
       library: "lib{{ ci.crate_name() }}",
       retType: DataType.Void,
@@ -756,9 +740,6 @@ const FFI_DYNAMIC_LIB = define({
 
     {%- endfor %}
 }) as {
-  uniffi_new_call_status: (args: []) => JsExternal,
-  uniffi_new_rust_buffer: (args: [JsExternal, bigint]) => JsExternal,
-  uniffi_free_call_status: (args: [JsExternal]) => void,
   uniffi_destroy_rust_buffer: (args: [UniffiRustBufferStruct]) => void,
 
   // uniffi_free_rust_buffer: (args: [JsExternal]) => void,
