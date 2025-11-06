@@ -618,9 +618,9 @@ class UniffiRustCallStatusFacade {
 
     // Note: do this free here to temporarily hack around no explicit `.free()` being done by
     // UniffiRustCaller on this object
-    // FFI_DYNAMIC_LIB.uniffi_free_call_status([this.pointer]);
-
-    this.free();
+    if (value.code === 0) {
+      this.free();
+    }
 
     return value.code;
   }
@@ -633,6 +633,11 @@ class UniffiRustCallStatusFacade {
     // that is what they do here.
 
     const result = (new UniffiRustBufferValue(value.errorBuf)).toUint8Array();
+
+    // Note: do this free here to temporarily hack around no explicit `.free()` being done by
+    // UniffiRustCaller on this object
+    this.free();
+
     return result;
   }
 
