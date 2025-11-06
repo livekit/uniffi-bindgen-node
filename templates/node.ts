@@ -309,112 +309,16 @@ const DataType_UniffiRustBufferStruct = {
   ffiTypeTag: DataType.StackStruct,
 };
 
-/** A RustBufferValue represents a series of bytes stored on the rust end of the uniffi interface.
+/** A UniffiRustBufferValue represents stack allocated structure containing a series of bytes
+  * stored on the rust end of the uniffi interface most likely on the heap.
+  *
   * It is often used to encode more complex function parameters / return values like structs,
   * optionals, etc.
   *
   * `RustBufferValue`s are behind the scenes backed by manually managed memory on the rust end, and
-  * must be explictly freed when no longer used to ensure no memory is leaked.
+  * must be explictly destroyed when no longer used to ensure no memory is leaked.
   * TODO: set up finalizationregistry.
   * */
-class UniffiRustBufferValue implements UniffiRustBufferStruct {
-  readonly len: bigint;
-  readonly capacity: bigint;
-
-  private _data: JsExternal | null;
-  get data(): JsExternal {
-    if (!this._data) {
-      throw new Error('Error getting data for UniffiRustBufferValue - data has been freed! This is not allowed.');
-    }
-    return this._data;
-  }
-
-  constructor(struct: UniffiRustBufferStruct) {
-    this.len = struct.len;
-    this.capacity = struct.capacity;
-    this._data = struct.data;
-  }
-
-  toUint8Array() {
-    if (this.len > Number.MAX_VALUE) {
-      throw new Error(`Error converting rust buffer to uint8array - rust buffer length is ${this.len}, which cannot be represented as a Number safely.`)
-    }
-
-    const [contents] = restorePointer({
-      retType: [arrayConstructor({ type: DataType.U8Array, length: Number(this.len) })],
-      paramsValue: wrapPointer([this.data]),
-    });
-
-    return new Uint8Array(contents);
-  }
-
-  consumeIntoUint8Array() {
-    const result = this.toUint8Array();
-    this.destroy();
-    return result;
-  }
-
-  destroy() {
-    if (!this._data) {
-      throw new Error('Error destroying UniffiRustBufferValue - already previously destroyed! Double freeing is not allowed.');
-    }
-
-    FFI_DYNAMIC_LIB.uniffi_destroy_rust_buffer([{ len: this.len, capacity: this.capacity, data: this._data }]);
-    this._data = null;
-  }
-}
-
-/** A UniffiRustBufferPointer represents a pointer to a {@link UniffiRustBufferValue} which is located on
-  * the heap. This is used mainly for passing parameters to function calls.
-  *
-  * `UniffiRustBufferPointer`s are behind the scenes backed by manually managed memory on the rust end, and
-  * must be explictly freed when no longer used to ensure no memory is leaked.
-  * TODO: set up finalizationregistry.
-  * */
-class UniffiRustBufferPointer extends UniffiRustBufferValue {
-  // Pointer to RustBuffer struct instance on rust end
-  private pointer: JsExternal | null;
-
-  private constructor(len: bigint, capacity: bigint, data: JsExternal, pointer: JsExternal) {
-    super({ data, len, capacity });
-    this.pointer = pointer;
-  }
-
-  static allocateWithBytes(bytes: Uint8Array) {
-    const [dataPointer] = createPointer({
-      paramsType: [arrayConstructor({ type: DataType.U8Array, length: bytes.length })],
-      paramsValue: [bytes],
-    });
-
-    const pointer = FFI_DYNAMIC_LIB.uniffi_new_rust_buffer([dataPointer, bytes.length]);
-
-    const [ dataPointerUnwrapped ] = unwrapPointer([dataPointer]);
-
-    return new UniffiRustBufferPointer(
-      bytes.length, // len
-      bytes.length, // capacity
-      dataPointerUnwrapped, // data
-      pointer, // pointer
-    );
-  }
-
-  free() {
-    if (!this.pointer) {
-      throw new Error('Error freeing UniffiRustBufferPointer - already previously freed! Double freeing is not allowed.');
-    }
-
-    const [ structValue ] = restorePointer({
-      retType: [DataType_UniffiRustBufferStruct],
-      paramsValue: [this.pointer],
-    });
-    FFI_DYNAMIC_LIB.uniffi_destroy_rust_buffer([structValue]);
-
-    // FFI_DYNAMIC_LIB.uniffi_free_rust_buffer([this.pointer]);
-
-    this.pointer = null;
-  }
-}
-
 class UniffiRustBufferValueNew {
   private struct: UniffiRustBufferStruct | null;
 
@@ -471,14 +375,59 @@ class UniffiRustBufferValueNew {
   }
 
   destroy() {
+    console.log('Rust buffer destroy called', this.struct)
     if (!this.struct) {
       throw new Error('Error destroying UniffiRustBufferValueNew - already previously destroyed! Double freeing is not allowed.');
     }
 
-    FFI_DYNAMIC_LIB.uniffi_destroy_rust_buffer([this.toStruct()]);
+    // FIXME: why can't I call uniffi_destroy_rust_buffer here and need to do the free manually?
+    // FFI_DYNAMIC_LIB.uniffi_destroy_rust_buffer([this.struct]);
+    freePointer({
+      paramsType: [arrayConstructor({ type: DataType.U8Array, length: this.struct.len })],
+      paramsValue: wrapPointer([this.struct.data]),
+      pointerType: PointerType.RsPointer,
+    });
+
     this.struct = null;
   }
 }
+
+/** The UniffiRustBufferFacade is used to give a {@link UniffiRustBufferValue} a
+  * {@link UniffiRustBufferStruct} type interface so it can be passed into places where a
+  * {@link UniffiRustBufferStruct} is expected.
+  *
+  * It also provides a mechanism to free the underlying UniffiRustBufferValue, which calling
+  * rustBufferValue.toStruct() wouldn't provide. */
+class UniffiRustBufferFacade implements UniffiRustBufferStruct {
+  // private pointer: StructPointer<UniffiRustBufferStruct, typeof DataType_UniffiRustBufferStruct> | null;
+  private value: UniffiRustBufferValueNew;
+
+  constructor(
+    rustBuffer: UniffiRustBufferValueNew,
+  ) {
+    this.value = rustBuffer;
+  }
+
+  get len() {
+    return this.value.toStruct().len;
+  }
+  get capacity() {
+    return this.value.toStruct().capacity;
+  }
+  get data() {
+    return this.value.toStruct().data;
+  }
+
+  free() {
+    // if (!this.pointer) {
+    //   throw new Error('Error destroying UniffiRustBufferValue - already previously destroyed! Double freeing is not allowed.');
+    // }
+
+    // this.pointer.free();
+    this.value.destroy();
+  }
+}
+
 
 type UniffiRustCallStatusStruct = { code: number, errorBuf?: UniffiRustBufferStruct };
 const DataType_UniffiRustCallStatus = {
@@ -488,6 +437,9 @@ const DataType_UniffiRustCallStatus = {
   ffiTypeTag: DataType.StackStruct,
 };
 
+/** A UniffiRustCallStatus represents the result of a function call. It must be cleaned up by
+  * calling .free() once it is no longer used because it contains fields which can refer to data
+  * on the heap. */
 class UniffiRustCallStatus {
   private struct: UniffiRustCallStatusStruct | null;
   private errorBuf: UniffiRustBufferValueNew | null;
@@ -574,6 +526,7 @@ class StructPointer<Struct extends object, StructDataType> {
   }
 }
 
+/** A single purpose facade meant to adapt {@link UniffiRustCallStatus} to satisify the contract of {@link UniffiRustCaller} */
 class UniffiRustCallStatusFacade {
   private structPointer: StructPointer<UniffiRustCallStatusStruct, typeof DataType_UniffiRustCallStatus> | null;
   get pointer(): JsExternal {
@@ -632,7 +585,7 @@ class UniffiRustCallStatusFacade {
     // That seems logical given the return type but check existing bindgens and see if
     // that is what they do here.
 
-    const result = (new UniffiRustBufferValue(value.errorBuf)).toUint8Array();
+    const result = (new UniffiRustBufferValueNew(value.errorBuf)).toUint8Array();
 
     // Note: do this free here to temporarily hack around no explicit `.free()` being done by
     // UniffiRustCaller on this object

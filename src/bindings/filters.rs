@@ -247,12 +247,12 @@ pub fn typescript_ffi_converter_name(typ: &impl AsType, askama_values: &dyn aska
 pub fn typescript_ffi_converter_lift_with(target: String, askama_values: &dyn askama::Values, typ: &impl AsType) -> Result<String> {
     Ok(match typ.as_type() {
         Type::String | Type::Map { .. } | Type::Sequence { .. } | Type::Enum { .. } | Type::Record { .. } => {
-            format!("{}.lift(new UniffiRustBufferValue({target}).consumeIntoUint8Array())", typescript_ffi_converter_name(typ, askama_values)?)
+            format!("{}.lift(new UniffiRustBufferValueNew({target}).consumeIntoUint8Array())", typescript_ffi_converter_name(typ, askama_values)?)
         },
         // Type::Object { name, imp, .. } => typescript_class_name(&imp.rust_name_for(&name), askama_values)?,
         // Type::CallbackInterface { name, .. } => name.to_lower_camel_case(),
         Type::Optional { inner_type } => {
-            format!("new FfiConverterOptional({}).lift(new UniffiRustBufferValue({target}).consumeIntoUint8Array())", typescript_ffi_converter_name(&inner_type, askama_values)?)
+            format!("new FfiConverterOptional({}).lift(new UniffiRustBufferValueNew({target}).consumeIntoUint8Array())", typescript_ffi_converter_name(&inner_type, askama_values)?)
         },
         _ => format!("{}.lift({target})", typescript_ffi_converter_name(typ, askama_values)?),
     })
@@ -261,12 +261,14 @@ pub fn typescript_ffi_converter_lift_with(target: String, askama_values: &dyn as
 pub fn typescript_ffi_converter_lower_with(target: String, askama_values: &dyn askama::Values, typ: &impl AsType) -> Result<String> {
     Ok(match typ.as_type() {
         Type::String | Type::Map { .. } | Type::Sequence { .. } | Type::Enum { .. } | Type::Record { .. } => {
-            format!("UniffiRustBufferPointer.allocateWithBytes({}.lower({target}))", typescript_ffi_converter_name(typ, askama_values)?)
+            // format!("UniffiRustBufferPointer.allocateWithBytes({}.lower({target}))", typescript_ffi_converter_name(typ, askama_values)?)
+            format!("new UniffiRustBufferFacade(UniffiRustBufferValueNew.allocateWithBytes({}.lower({target})))", typescript_ffi_converter_name(typ, askama_values)?)
         },
         // Type::Object { name, imp, .. } => typescript_class_name(&imp.rust_name_for(&name), askama_values)?,
         // Type::CallbackInterface { name, .. } => name.to_lower_camel_case(),
         Type::Optional { inner_type } => {
-            format!("UniffiRustBufferPointer.allocateWithBytes(new FfiConverterOptional({}).lower({target}))", typescript_ffi_converter_name(&inner_type, askama_values)?)
+            // format!("UniffiRustBufferPointer.allocateWithBytes(new FfiConverterOptional({}).lower({target}))", typescript_ffi_converter_name(&inner_type, askama_values)?)
+            format!("new UniffiRustBufferFacade(UniffiRustBufferValueNew.allocateWithBytes(new FfiConverterOptional({}).lower({target})))", typescript_ffi_converter_name(&inner_type, askama_values)?)
         },
         _ => format!("{}.lower({target})", typescript_ffi_converter_name(typ, askama_values)?),
     })
