@@ -53,9 +53,9 @@ import {
 } from 'uniffi-bindgen-react-native';
 
 // Get converters from the other files, if any.
-const uniffiCaller = new UniffiRustCaller<UniffiRustCallStatusPointer>(
+const uniffiCaller = new UniffiRustCaller<UniffiRustCallStatusPointerNew>(
   () => {
-    return UniffiRustCallStatusPointer.allocate();
+    return UniffiRustCallStatusPointerNew.allocate();
   }
 );
 
@@ -285,10 +285,13 @@ import {
   define,
   load,
   arrayConstructor,
+  funcConstructor,
   restorePointer,
   wrapPointer,
   unwrapPointer,
   createPointer,
+  freePointer,
+  PointerType,
 } from 'ffi-rs';
 
 // FIXME: un hard code path and make it platform specific
@@ -412,6 +415,71 @@ class UniffiRustBufferPointer extends UniffiRustBufferValue {
   }
 }
 
+class UniffiRustBufferValueNew {
+  private struct: UniffiRustBufferStruct | null;
+
+  constructor(struct: UniffiRustBufferStruct) {
+    this.struct = struct;
+  }
+
+  static allocateWithBytes(bytes: Uint8Array) {
+    const [dataPointer] = createPointer({
+      paramsType: [arrayConstructor({ type: DataType.U8Array, length: bytes.length })],
+      paramsValue: [bytes],
+    });
+
+    const [ dataPointerUnwrapped ] = unwrapPointer([dataPointer]);
+
+    return new UniffiRustBufferValueNew({
+      len: bytes.length,
+      capacity: bytes.length,
+      data: dataPointerUnwrapped,
+    });
+  }
+
+  static allocateEmpty() {
+    return UniffiRustBufferValueNew.allocateWithBytes(new Uint8Array());
+  }
+
+  toStruct() {
+    if (!this.struct) {
+      throw new Error('Error getting struct data for UniffiRustBufferValueNew - struct.data has been freed! This is not allowed.');
+    }
+    return this.struct;
+  }
+
+  toUint8Array() {
+    if (!this.struct) {
+      throw new Error('Error converting rust buffer to uint8array - struct.data has been freed! This is not allowed.');
+    }
+    if (this.struct.len > Number.MAX_VALUE) {
+      throw new Error(`Error converting rust buffer to uint8array - rust buffer length is ${this.struct.len}, which cannot be represented as a Number safely.`)
+    }
+
+    const [contents] = restorePointer({
+      retType: [arrayConstructor({ type: DataType.U8Array, length: Number(this.struct.len) })],
+      paramsValue: wrapPointer([this.struct.data]),
+    });
+
+    return new Uint8Array(contents);
+  }
+
+  consumeIntoUint8Array() {
+    const result = this.toUint8Array();
+    this.destroy();
+    return result;
+  }
+
+  destroy() {
+    if (!this.struct) {
+      throw new Error('Error destroying UniffiRustBufferValueNew - already previously destroyed! Double freeing is not allowed.');
+    }
+
+    FFI_DYNAMIC_LIB.uniffi_destroy_rust_buffer([this.toStruct()]);
+    this.struct = null;
+  }
+}
+
 type UniffiRustCallStatusStruct = { code: number, errorBuf?: UniffiByteArray };
 const DataType_UniffiRustCallStatus = {
   code: DataType.U8,
@@ -419,6 +487,80 @@ const DataType_UniffiRustCallStatus = {
 
   ffiTypeTag: DataType.StackStruct,
 };
+
+class UniffiRustCallStatusPointerNew implements UniffiRustCallStatusStruct {
+  private _pointer: JsExternal | null;
+  get pointer(): JsExternal {
+    if (!this._pointer) {
+      throw new Error('Error resolving pointer for UniffiRustCallStatusPointer - pointer has been freed! This is not allowed.');
+    }
+    return this._pointer;
+  }
+
+  private constructor(pointer: JsExternal) {
+    this._pointer = pointer;
+  }
+
+  static allocate() {
+    const buffer = UniffiRustBufferValueNew.allocateEmpty();
+    const struct = { code: 0, errorBuf: buffer.toStruct() };
+
+    // FIXME: make sure to free this so memory doesn't leak, right now that is not being done!
+    const [ pointer ] = createPointer({
+      paramsType: [DataType_UniffiRustCallStatus],
+      paramsValue: [struct],
+    });
+    return new UniffiRustCallStatusPointer(pointer);
+  }
+
+  // FIXME: make this private, right now it is public so it can be logged for debugging
+  getValue(): UniffiRustCallStatusStruct {
+    const [ contents ] = restorePointer({
+      retType: [DataType_UniffiRustCallStatus],
+      paramsValue: [this.pointer],
+    });
+    return contents;
+  }
+
+  get code(): number {
+    const value = this.getValue();
+
+    // Note: do this free here to temporarily hack around no explicit `.free()` being done by
+    // UniffiRustCaller on this object
+    // FFI_DYNAMIC_LIB.uniffi_free_call_status([this.pointer]);
+
+    return value.code;
+  }
+
+  get errorBuf(): UniffiByteArray | undefined {
+    const value = this.getValue();
+
+    // FIXME: should value.code be checked for `0` here and `undefined` returned?
+    // That seems logical given the return type but check existing bindgens and see if
+    // that is what they do here.
+
+    return (new UniffiRustBufferValue(value.errorBuf)).toUint8Array();
+  }
+
+  free() {
+    console.log('FREE CALLED');
+    if (!this._pointer) {
+      throw new Error('Error resolving pointer for UniffiRustCallStatusPointerNew - pointer has already been freed! This is not allowed.');
+    }
+
+    // FIXME: this is untested, make sure it works!
+    freePointer({
+      paramsType: [DataType_UniffiRustCallStatus],
+      paramsValue: this._pointer,
+      pointerType: PointerType.RsPointer,
+    });
+    this._pointer = null;
+  }
+
+  [Symbol.dispose]() {
+    this.free();
+  }
+}
 
 class UniffiRustCallStatusPointer implements UniffiRustCallStatusStruct {
   // static cleanupRegistry =
@@ -443,6 +585,13 @@ class UniffiRustCallStatusPointer implements UniffiRustCallStatusStruct {
   static allocate() {
     // FIXME: make sure to free this so memory doesn't leak, right now that is not being done!
     const pointer = FFI_DYNAMIC_LIB.uniffi_new_call_status([]);
+    const callbackExternal = createPointer({
+      paramsType: [funcConstructor({
+        paramsType: [DataType.U64, /* i8 */ DataType.U8],
+        retType: DataType.Void,
+      })],
+      paramsValue: [wrappedCallback],
+    });
     return new UniffiRustCallStatusPointer(pointer);
   }
 
