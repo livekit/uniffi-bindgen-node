@@ -53,9 +53,9 @@ import {
 } from 'uniffi-bindgen-react-native';
 
 // Get converters from the other files, if any.
-const uniffiCaller = new UniffiRustCaller<UniffiRustCallStatusPointerNew>(
+const uniffiCaller = new UniffiRustCaller<UniffiRustCallStatusFacade>(
   () => {
-    return UniffiRustCallStatusPointerNew.allocate();
+    return UniffiRustCallStatusFacade.allocate();
   }
 );
 
@@ -480,8 +480,7 @@ class UniffiRustBufferValueNew {
   }
 }
 
-type UniffiRustCallStatusStruct = { code: number, errorBuf?: UniffiByteArray };
-type UniffiRustCallStatusStructNew = { code: number, errorBuf?: UniffiRustBufferStruct };
+type UniffiRustCallStatusStruct = { code: number, errorBuf?: UniffiRustBufferStruct };
 const DataType_UniffiRustCallStatus = {
   code: DataType.U8,
   errorBuf: DataType_UniffiRustBufferStruct,
@@ -489,11 +488,11 @@ const DataType_UniffiRustCallStatus = {
   ffiTypeTag: DataType.StackStruct,
 };
 
-class UniffiRustCallStatusNew {
-  private struct: UniffiRustCallStatusStructNew | null;
+class UniffiRustCallStatus {
+  private struct: UniffiRustCallStatusStruct | null;
   private errorBuf: UniffiRustBufferValueNew | null;
 
-  private constructor(struct: UniffiRustCallStatusStructNew, errorBuf: UniffiRustBufferValueNew) {
+  private constructor(struct: UniffiRustCallStatusStruct, errorBuf: UniffiRustBufferValueNew) {
     this.struct = struct;
     this.errorBuf = errorBuf;
   }
@@ -501,7 +500,7 @@ class UniffiRustCallStatusNew {
   static allocate() {
     const buffer = UniffiRustBufferValueNew.allocateEmpty();
     const struct = { code: 0, errorBuf: buffer.toStruct() };
-    return new UniffiRustCallStatusNew(struct, buffer);
+    return new UniffiRustCallStatus(struct, buffer);
   }
 
   toStruct() {
@@ -521,87 +520,6 @@ class UniffiRustCallStatusNew {
     this.errorBuf.destroy();
     this.errorBuf = null;
     this.struct = null;
-  }
-}
-
-class UniffiRustCallStatusPointerNew implements UniffiRustCallStatusStruct {
-  private _pointer: StructPointer<UniffiRustCallStatusStructNew, typeof DataType_UniffiRustCallStatus> | null;
-  get pointer(): JsExternal {
-    if (!this._pointer) {
-      throw new Error('Error resolving pointer for UniffiRustCallStatusPointer - pointer has been freed! This is not allowed.');
-    }
-    return this._pointer.pointer;
-  }
-
-  private callStatus: UniffiRustCallStatusNew | null;
-
-  private constructor(
-    pointer: StructPointer<UniffiRustCallStatusStructNew, typeof DataType_UniffiRustCallStatus>,
-    callStatus: UniffiRustCallStatusNew,
-  ) {
-    this._pointer = pointer;
-    this.callStatus = callStatus;
-  }
-
-  static allocate() {
-    // const buffer = UniffiRustBufferValueNew.allocateEmpty();
-    // const struct = { code: 0, errorBuf: buffer.toStruct() };
-
-    const value = UniffiRustCallStatusNew.allocate();
-
-    const structPointer = new StructPointer(value.toStruct(), DataType_UniffiRustCallStatus, 'UniffiRustCallStatusPointerNew');
-
-    return new UniffiRustCallStatusPointerNew(structPointer, value);
-  }
-
-  // FIXME: make this private, right now it is public so it can be logged for debugging
-  getValue(): UniffiRustCallStatusStruct {
-    const [ contents ] = restorePointer({
-      retType: [DataType_UniffiRustCallStatus],
-      paramsValue: [this.pointer],
-    });
-    return contents;
-  }
-
-  get code(): number {
-    const value = this.getValue();
-
-    // Note: do this free here to temporarily hack around no explicit `.free()` being done by
-    // UniffiRustCaller on this object
-    // FFI_DYNAMIC_LIB.uniffi_free_call_status([this.pointer]);
-
-    // this.free();
-
-    return value.code;
-  }
-
-  get errorBuf(): UniffiByteArray | undefined {
-    const value = this.getValue();
-
-    // FIXME: should value.code be checked for `0` here and `undefined` returned?
-    // That seems logical given the return type but check existing bindgens and see if
-    // that is what they do here.
-
-    const result = (new UniffiRustBufferValue(value.errorBuf)).toUint8Array();
-    return result;
-  }
-
-  free() {
-    console.log('FREE CALLED');
-    if (!this._pointer || !this.callStatus) {
-      throw new Error('Error resolving pointer for UniffiRustCallStatusPointerNew - pointer has already been freed! This is not allowed.');
-    }
-
-    // FIXME: this is untested, make sure it works!
-    this._pointer.free();
-    this._pointer = null;
-
-    this.callStatus.free();
-    this.callStatus = null;
-  }
-
-  [Symbol.dispose]() {
-    this.free();
   }
 }
 
@@ -658,41 +576,38 @@ class StructPointer<Struct extends object, StructDataType> {
   }
 }
 
-class UniffiRustCallStatusPointer implements UniffiRustCallStatusStruct {
-  // static cleanupRegistry =
-  //   typeof FinalizationRegistry !== 'undefined' &&
-  //   new FinalizationRegistry((handle) => {
-  //     console.log('HANDLE', handle);
-  //   });
-
-  private _pointer: JsExternal | null;
+class UniffiRustCallStatusFacade {
+  private structPointer: StructPointer<UniffiRustCallStatusStruct, typeof DataType_UniffiRustCallStatus> | null;
   get pointer(): JsExternal {
-    if (!this._pointer) {
+    if (!this.structPointer) {
       throw new Error('Error resolving pointer for UniffiRustCallStatusPointer - pointer has been freed! This is not allowed.');
     }
-    return this._pointer;
+    return this.structPointer.pointer;
   }
 
-  private constructor(pointer: JsExternal) {
-    this._pointer = pointer;
-    // UniffiRustCallStatusPointer.cleanupRegistry.register(this, "handle");
+  private callStatus: UniffiRustCallStatus | null;
+
+  private constructor(
+    callStatusPointer: StructPointer<UniffiRustCallStatusStruct, typeof DataType_UniffiRustCallStatus>,
+    callStatus: UniffiRustCallStatus,
+  ) {
+    this.structPointer = callStatusPointer;
+    this.callStatus = callStatus;
   }
 
   static allocate() {
-    // FIXME: make sure to free this so memory doesn't leak, right now that is not being done!
-    const pointer = FFI_DYNAMIC_LIB.uniffi_new_call_status([]);
-    const callbackExternal = createPointer({
-      paramsType: [funcConstructor({
-        paramsType: [DataType.U64, /* i8 */ DataType.U8],
-        retType: DataType.Void,
-      })],
-      paramsValue: [wrappedCallback],
-    });
-    return new UniffiRustCallStatusPointer(pointer);
+    // const buffer = UniffiRustBufferValueNew.allocateEmpty();
+    // const struct = { code: 0, errorBuf: buffer.toStruct() };
+
+    const value = UniffiRustCallStatus.allocate();
+
+    const structPointer = new StructPointer(value.toStruct(), DataType_UniffiRustCallStatus, 'UniffiRustCallStatusPointerNew');
+
+    return new UniffiRustCallStatusFacade(structPointer, value);
   }
 
   // FIXME: make this private, right now it is public so it can be logged for debugging
-  getValue(): UniffiRustCallStatusStruct {
+  getValue() {
     const [ contents ] = restorePointer({
       retType: [DataType_UniffiRustCallStatus],
       paramsValue: [this.pointer],
@@ -707,6 +622,8 @@ class UniffiRustCallStatusPointer implements UniffiRustCallStatusStruct {
     // UniffiRustCaller on this object
     // FFI_DYNAMIC_LIB.uniffi_free_call_status([this.pointer]);
 
+    // this.free();
+
     return value.code;
   }
 
@@ -717,20 +634,27 @@ class UniffiRustCallStatusPointer implements UniffiRustCallStatusStruct {
     // That seems logical given the return type but check existing bindgens and see if
     // that is what they do here.
 
-    // FIXME: instead of consumeIntoUint8Array here, just do toUint8Array and make this be explictly
-    // freed. But to do this, I need to dig more into how `UniffiRustCaller` works, there must be
-    // some way it does the free explictly.
-    const array = (new UniffiRustBufferValue(value.errorBuf)).consumeIntoUint8Array();
-    FFI_DYNAMIC_LIB.uniffi_free_call_status([this.pointer]);
-    return array;
+    const result = (new UniffiRustBufferValue(value.errorBuf)).toUint8Array();
+    return result;
   }
 
   free() {
+    console.log('FREE CALLED');
+    if (!this.structPointer || !this.callStatus) {
+      throw new Error('Error resolving pointer for UniffiRustCallStatusPointerNew - pointer has already been freed! This is not allowed.');
+    }
+
     // FIXME: this is untested, make sure it works!
-    // const value = this.getValue();
-    // return (new UniffiRustBufferValue(value.errorBuf)).destroy();
+    this.structPointer.free();
+    this.structPointer = null;
+
+    this.callStatus.free();
+    this.callStatus = null;
   }
-  // [Symbol.dispose](): void;
+
+  [Symbol.dispose]() {
+    this.free();
+  }
 }
 
 {%- for definition in ci.ffi_definitions() -%}
