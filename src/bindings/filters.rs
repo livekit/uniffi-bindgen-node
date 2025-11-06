@@ -1,6 +1,6 @@
 use askama::Result;
 use heck::{ToLowerCamelCase, ToPascalCase, ToUpperCamelCase, ToSnakeCase};
-use uniffi_bindgen::interface::{AsType, FfiType, Type};
+use uniffi_bindgen::interface::{AsType, FfiDefinition, FfiType, Type};
 
 // ref: https://github.com/mozilla/uniffi-rs/blob/2e7c7bb07bfc7e310722ce43c002b916f20860ff/uniffi_bindgen/src/scaffolding/mod.rs#L26
 pub fn rust_type_name(typ: &impl AsType, askama_values: &dyn askama::Values) -> Result<String> {
@@ -173,9 +173,9 @@ pub fn typescript_ffi_type_name(ffi_type: &FfiType, askama_values: &dyn askama::
         // FfiType::RustArcPtr(_) => "void *".into(),
         FfiType::RustBuffer(_) => "/* RustBuffer */ UniffiRustBufferStruct".into(),
         FfiType::ForeignBytes => "JsExternal".into(),
-        FfiType::Callback(name) => typescript_callback_name(name, askama_values)?,
+        FfiType::Callback(name) => format!("/* callback {} */ JsExternal", typescript_callback_name(name, askama_values)?),
         FfiType::Struct(name) => typescript_ffi_struct_name(name, askama_values)?,
-        FfiType::Handle => "/* handle */ Buffer".into(),
+        FfiType::Handle => "/* handle */ bigint".into(),
         FfiType::RustCallStatus => "/* RustCallStatus */ JsExternal".into(),
         FfiType::MutReference(inner) => format!("/* MutReference to {} */ JsExternal", typescript_ffi_type_name(inner, askama_values)?),
         FfiType::Reference(inner) => format!("/* Reference to {} */ JsExternal", typescript_ffi_type_name(inner, askama_values)?),
@@ -185,7 +185,7 @@ pub fn typescript_ffi_type_name(ffi_type: &FfiType, askama_values: &dyn askama::
 
 pub fn typescript_ffi_datatype_name(ffi_type: &FfiType, askama_values: &dyn askama::Values) -> Result<String> {
     Ok(match ffi_type {
-        FfiType::Int8 => "/* i8 */ DataType.I16".into(),
+        FfiType::Int8 => "/* i8 */ DataType.U8".into(),
         FfiType::Int16 => "DataType.I16".into(),
         FfiType::Int32 => "DataType.I32".into(),
         FfiType::Int64 => "DataType.I64".into(),
@@ -194,13 +194,13 @@ pub fn typescript_ffi_datatype_name(ffi_type: &FfiType, askama_values: &dyn aska
         FfiType::UInt32 => "/* u32 */ DataType.U64".into(),
         FfiType::UInt64 => "DataType.U64".into(),
         FfiType::Float32 => "/* f32 */ DataType.Float".into(),
-        FfiType::Float64 => "/* f64 */ DataType.Float".into(), // FIXME: is this right for f64? I am not sure `number` is big enough?
+        FfiType::Float64 => "/* f64 */ DataType.Double".into(), // FIXME: is this right for f64? I am not sure `number` is big enough?
         // FfiType::RustArcPtr(_) => "void *".into(),
         FfiType::RustBuffer(_) => "DataType_UniffiRustBufferStruct".into(),
         FfiType::ForeignBytes => "DataType.External".into(),
-        FfiType::Callback(name) => format!("/* {name} */ DataType.Function"),
+        FfiType::Callback(_name) => "/* callback */ DataType.External".into(),
         FfiType::Struct(name) => format!("/* {} */ DataType.U8Array", typescript_ffi_struct_name(name, askama_values)?), // FIXME: this should make struct definitions in ffi-rs
-        FfiType::Handle => "/* handle */ DataType.U8Array".into(),
+        FfiType::Handle => "/* handle */ DataType.U64".into(),
         FfiType::RustCallStatus => "/* RustCallStatus */ DataType.External".into(),
         FfiType::MutReference(inner) => format!("/* MutReference to {} */ DataType.External", typescript_ffi_type_name(inner, askama_values)?),
         FfiType::Reference(inner) => format!("/* Reference to {} */ DataType.External", typescript_ffi_type_name(inner, askama_values)?),

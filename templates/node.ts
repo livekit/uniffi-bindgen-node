@@ -226,19 +226,75 @@ export const {{ enum_def.name() | typescript_ffi_converter_struct_enum_name }} =
 {% call docstring(func_def.docstring()) %}
 export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() | typescript_fn_name }}(
   {%- call param_list(func_def) -%}
+  {%- if func_def.is_async() -%}
+    {%- if !func_def.arguments().is_empty() %}, {% endif -%}
+    asyncOpts_?: { signal: AbortSignal }
+  {%- endif -%}
 ){%- if let Some(ret_type) = func_def.return_type() -%}: {% if func_def.is_async() -%}
   Promise<{%- endif -%}{{ ret_type | typescript_type_name }}{%- if func_def.is_async() -%}>{%- endif -%}
 {%- endif %} {
-  {% if func_def.return_type().is_some() %}let returnValue = {% endif -%}
-  {% match func_def.throws_type() -%}
-    {%- when Some(err) -%}
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeAccessTokenError.lift.bind(FfiConverterTypeAccessTokenError), // FIXME: where does this error type come from?
-        /*caller:*/ (callStatus) => {
-    {%- else -%}
-      uniffiCaller.rustCall(
-        /*caller:*/ (callStatus) => {
-    {%- endmatch %}
+  {%- if func_def.is_async() %}
+    /* Async function call: */
+    const returnValue = await uniffiRustCallAsync(
+      /*rustCaller:*/ uniffiCaller,
+      /*rustFutureFunc:*/ () => {
+        console.log("{{ func_def.ffi_func().name() }} async call starting...");
+        const returnedHandle = FFI_DYNAMIC_LIB.{{ func_def.ffi_func().name() }}([
+          {% for arg in func_def.arguments() -%}
+            {{ arg.name() | typescript_argument_var_name }}
+            {%- if !loop.last %}, {% endif %}
+          {%- endfor -%}
+        ]);
+        console.log("{{ func_def.ffi_func().name() }} returned handle:", returnedHandle);
+        return returnedHandle;
+      },
+      /*pollFunc:*/ (handle, callback, callbackData) => {
+        console.log("async poll:", handle, callback, callbackData);
+        const wrappedCallback = (a, b) => {
+          // const bSigned = (b & 0b10000000 > 0 ? -1 : 1) * (b >> 1);
+          console.log('CALLBACK FIRED!', a, b);
+          callback(a, b);
+        };
+        const callbackExternal = createPointer({
+          paramsType: [funcConstructor({
+            paramsType: [DataType.U64, /* i8 */ DataType.U8],
+            retType: DataType.Void,
+          })],
+          paramsValue: [wrappedCallback],
+        });
+        const [ unwrapped ] = unwrapPointer(callbackExternal);
+
+        FFI_DYNAMIC_LIB.{{ func_def.ffi_rust_future_poll(ci) }}([handle, unwrapped, Number(callbackData) /* FIXME: why must I convert callbackData from bigint -> number here for the ffi call to succeed? */]);
+        console.log('async poll done');
+        setTimeout(() => {}, 5000); // FIXME: remove this once the memory management logic is fixed
+        // FIXME: free callbackExternal here!
+      },
+      /*cancelFunc:*/ (handle) => { return FFI_DYNAMIC_LIB.{{ func_def.ffi_rust_future_cancel(ci) }}([handle]) },
+      /*completeFunc:*/ (handle, callStatus) => { return FFI_DYNAMIC_LIB.{{ func_def.ffi_rust_future_complete(ci) }}([handle, callStatus.pointer]) },
+      /*freeFunc:*/ (handle) => { return FFI_DYNAMIC_LIB.{{ func_def.ffi_rust_future_free(ci) }}([handle]) },
+
+      {% if let Some(ret_type) = func_def.return_type() -%}
+        /*liftFunc:*/ (value) => {{ "value".into() | typescript_ffi_converter_lift_with(ret_type) }},
+      {%- else -%}
+        /*liftFunc:*/ (_v) => {},
+      {%- endif %}
+      /*liftString:*/ FfiConverterString.lift,
+      /*asyncOpts:*/ asyncOpts_
+    );
+    return returnValue;
+
+  {% else %}
+    /* Regular function call: */
+    {% if func_def.return_type().is_some() %}const returnValue = {% endif -%}
+    {%- match func_def.throws_type() -%}
+      {%- when Some(err) -%}
+        uniffiCaller.rustCallWithError(
+          /*liftError:*/ FfiConverterTypeAccessTokenError.lift.bind(FfiConverterTypeAccessTokenError), // FIXME: where does this error type come from?
+          /*caller:*/ (callStatus) => {
+      {%- else -%}
+        uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) => {
+    {%- endmatch -%}
         {% for arg in func_def.arguments() -%}
           let {{ arg.name() | typescript_argument_var_name }} = {{ arg.name() | typescript_var_name | typescript_ffi_converter_lower_with(arg.as_type().borrow()) }};
         {% endfor -%}
@@ -264,11 +320,12 @@ export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() 
         return returnValue;
       },
       /*liftString:*/ {{ &Type::String | typescript_ffi_converter_name }}.lift
-  );
+    );
 
-  {% if let Some(ret_type) = func_def.return_type() -%}
-    return {{ "returnValue".into() | typescript_ffi_converter_lift_with(ret_type) }};
-  {%- endif %}
+    {% if let Some(ret_type) = func_def.return_type() -%}
+      return {{ "returnValue".into() | typescript_ffi_converter_lift_with(ret_type) }};
+    {%- endif %}
+  {% endif -%}
 }
 
 {% endfor %}
