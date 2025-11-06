@@ -319,7 +319,7 @@ const DataType_UniffiRustBufferStruct = {
   * must be explictly destroyed when no longer used to ensure no memory is leaked.
   * TODO: set up finalizationregistry.
   * */
-class UniffiRustBufferValueNew {
+class UniffiRustBufferValue {
   private struct: UniffiRustBufferStruct | null;
 
   constructor(struct: UniffiRustBufferStruct) {
@@ -334,7 +334,7 @@ class UniffiRustBufferValueNew {
 
     const [ dataPointerUnwrapped ] = unwrapPointer([dataPointer]);
 
-    return new UniffiRustBufferValueNew({
+    return new UniffiRustBufferValue({
       len: bytes.length,
       capacity: bytes.length,
       data: dataPointerUnwrapped,
@@ -342,12 +342,12 @@ class UniffiRustBufferValueNew {
   }
 
   static allocateEmpty() {
-    return UniffiRustBufferValueNew.allocateWithBytes(new Uint8Array());
+    return UniffiRustBufferValue.allocateWithBytes(new Uint8Array());
   }
 
   toStruct() {
     if (!this.struct) {
-      throw new Error('Error getting struct data for UniffiRustBufferValueNew - struct.data has been freed! This is not allowed.');
+      throw new Error('Error getting struct data for UniffiRustBufferValue - struct.data has been freed! This is not allowed.');
     }
     return this.struct;
   }
@@ -377,7 +377,7 @@ class UniffiRustBufferValueNew {
   destroy() {
     console.log('Rust buffer destroy called', this.struct)
     if (!this.struct) {
-      throw new Error('Error destroying UniffiRustBufferValueNew - already previously destroyed! Double freeing is not allowed.');
+      throw new Error('Error destroying UniffiRustBufferValue - already previously destroyed! Double freeing is not allowed.');
     }
 
     // FIXME: why can't I call uniffi_destroy_rust_buffer here and need to do the free manually?
@@ -400,10 +400,10 @@ class UniffiRustBufferValueNew {
   * rustBufferValue.toStruct() wouldn't provide. */
 class UniffiRustBufferFacade implements UniffiRustBufferStruct {
   // private pointer: StructPointer<UniffiRustBufferStruct, typeof DataType_UniffiRustBufferStruct> | null;
-  private value: UniffiRustBufferValueNew;
+  private value: UniffiRustBufferValue;
 
   constructor(
-    rustBuffer: UniffiRustBufferValueNew,
+    rustBuffer: UniffiRustBufferValue,
   ) {
     this.value = rustBuffer;
   }
@@ -442,15 +442,15 @@ const DataType_UniffiRustCallStatus = {
   * on the heap. */
 class UniffiRustCallStatus {
   private struct: UniffiRustCallStatusStruct | null;
-  private errorBuf: UniffiRustBufferValueNew | null;
+  private errorBuf: UniffiRustBufferValue | null;
 
-  private constructor(struct: UniffiRustCallStatusStruct, errorBuf: UniffiRustBufferValueNew) {
+  private constructor(struct: UniffiRustCallStatusStruct, errorBuf: UniffiRustBufferValue) {
     this.struct = struct;
     this.errorBuf = errorBuf;
   }
 
   static allocate() {
-    const buffer = UniffiRustBufferValueNew.allocateEmpty();
+    const buffer = UniffiRustBufferValue.allocateEmpty();
     const struct = { code: 0, errorBuf: buffer.toStruct() };
     return new UniffiRustCallStatus(struct, buffer);
   }
@@ -585,7 +585,7 @@ class UniffiRustCallStatusFacade {
     // That seems logical given the return type but check existing bindgens and see if
     // that is what they do here.
 
-    const result = (new UniffiRustBufferValueNew(value.errorBuf)).toUint8Array();
+    const result = (new UniffiRustBufferValue(value.errorBuf)).toUint8Array();
 
     // Note: do this free here to temporarily hack around no explicit `.free()` being done by
     // UniffiRustCaller on this object
