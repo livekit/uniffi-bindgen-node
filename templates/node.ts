@@ -291,8 +291,13 @@ export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() 
         lastPollCallbackPointer = callbackExternal;
         const [ unwrapped ] = unwrapPointer(callbackExternal);
 
-        FFI_DYNAMIC_LIB.{{ func_def.ffi_rust_future_poll(ci) }}([handle, unwrapped, Number(callbackData) /* FIXME: why must I convert callbackData from bigint -> number here for the ffi call to succeed? */]);
-        setTimeout(() => {}, 5000);
+        FFI_DYNAMIC_LIB.{{ func_def.ffi_rust_future_poll(ci) }}([
+          handle,
+          unwrapped,
+          Number(callbackData) /* FIXME: why must I convert callbackData from bigint -> number here for the ffi call to succeed? */
+        ]);
+        console.log('{{ func_def.ffi_func().name() }} async poll done');
+        // setTimeout(() => { console.log('settimeout complete')}, 5000);
       },
       /*cancelFunc:*/ (handle) => {
         console.log('{{ func_def.ffi_func().name() }} async cancel:');
