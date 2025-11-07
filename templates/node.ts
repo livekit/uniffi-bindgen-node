@@ -423,12 +423,11 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
   {% for constructor_fn in object_def.constructors() -%}
   {% call docstring(constructor_fn.docstring()) %}
   {% if constructor_fn.is_primary_constructor() -%}
-    constructor
-  {%- else -%}
-    static {{ constructor_fn.name() | typescript_var_name }}
-  {%- endif %}(
+  constructor(
     {%- call function_arg_list(constructor_fn) -%}
   ){% call function_return_type_or_void(constructor_fn) %} {
+    super();
+
     const pointer = uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return FFI_DYNAMIC_LIB.{{ constructor_fn.ffi_func().name() }}([
@@ -445,8 +444,17 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
       },
       /*liftString:*/ FfiConverterString.lift
     );
-    return {{ object_def.name() | typescript_ffi_object_factory_name }}.create(pointer);
+
+    this[pointerLiteralSymbol] = pointer;
+    this[destructorGuardSymbol] = {{ object_def.name() | typescript_ffi_object_factory_name }}.bless(pointer);
   }
+  {%- else %}
+    static {{ constructor_fn.name() | typescript_var_name }}(
+      {%- call function_arg_list(constructor_fn) -%}
+    ){% call function_return_type_or_void(constructor_fn) %} {
+      {%- call function_call_body(constructor_fn) -%}
+    }
+  {%- endif %}
   {%- endfor -%}
 
   // Methods:
