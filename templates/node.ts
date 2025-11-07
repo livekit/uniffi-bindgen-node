@@ -419,14 +419,14 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
   readonly [destructorGuardSymbol]: UniffiRustArcPtr;
   readonly [pointerLiteralSymbol]: UnsafeMutableRawPointer;
 
-  // FIXME: rename default static method constructor from `static new` -> `constructor`!
-  // This might also require adding some other alternate construction path that other constructors
-  // can use instead of `new Foo()`.
-
   // Constructors:
   {% for constructor_fn in object_def.constructors() -%}
   {% call docstring(constructor_fn.docstring()) %}
-  static {{ constructor_fn.name() | typescript_var_name }}(
+  {% if constructor_fn.is_primary_constructor() -%}
+    constructor
+  {%- else -%}
+    static {{ constructor_fn.name() | typescript_var_name }}
+  {%- endif %}(
     {%- call function_arg_list(constructor_fn) -%}
   ){% call function_return_type_or_void(constructor_fn) %} {
 
