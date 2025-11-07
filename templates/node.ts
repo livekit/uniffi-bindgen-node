@@ -73,6 +73,11 @@
             {{ arg.name() | typescript_argument_var_name }}
             {%- if !loop.last %}, {% endif %}
           {%- endfor -%}
+
+          {%- if func_def.ffi_func().has_rust_call_status_arg() -%}
+            {%- if !func_def.arguments().is_empty() || func_def.self_type().is_some() %}, {% endif -%}
+            callStatus.pointer
+          {%- endif %}
         ]);
         console.log("{{ func_def.ffi_func().name() }} returned handle:", returnedHandle);
         return returnedHandle;
