@@ -140,7 +140,7 @@ pub fn typescript_type_name(typ: &impl AsType, askama_values: &dyn askama::Value
         Type::Timestamp => "Date".into(),
         Type::Duration => "number /* in milliseconds */".into(), // ref: https://github.com/jhugman/uniffi-bindgen-react-native/blob/b9301797ef697331d29edb9d2402ea35c218571e/crates/ubrn_bindgen/src/bindings/gen_typescript/miscellany.rs#L31
         Type::Enum { name, .. } | Type::Record { name, .. } => name.to_pascal_case(),
-        Type::Object { name, imp, .. } => imp.rust_name_for(&name).to_pascal_case(),
+        Type::Object { name, .. } => typescript_class_name(&name, askama_values)?,
         Type::CallbackInterface { name, .. } => name.to_lower_camel_case(),
         Type::Optional { inner_type } => {
             format!("{} | undefined", typescript_type_name(&inner_type, askama_values)?)
@@ -305,6 +305,10 @@ pub fn typescript_class_name(raw_name: &str, _: &dyn askama::Values) -> Result<S
     Ok(raw_name.to_pascal_case())
 }
 
+pub fn typescript_protocol_name(raw_name: &str, values: &dyn askama::Values) -> Result<String> {
+    Ok(format!("{}Interface", typescript_class_name(raw_name, values)?))
+}
+
 pub fn typescript_ffi_struct_name(raw_name: &str, _: &dyn askama::Values) -> Result<String> {
     Ok(format!("Uniffi{}", raw_name.to_upper_camel_case()))
 }
@@ -315,4 +319,8 @@ pub fn typescript_callback_name(raw_name: &str, _: &dyn askama::Values) -> Resul
 
 pub fn typescript_ffi_converter_struct_enum_name(struct_name: &str, _: &dyn askama::Values) -> Result<String> {
     Ok(format!("FfiConverterType{}", struct_name.to_upper_camel_case()))
+}
+
+pub fn typescript_ffi_object_factory_name(object_name: &str, values: &dyn askama::Values) -> Result<String> {
+    Ok(format!("uniffiType{}ObjectFactory", typescript_class_name(object_name, values)?))
 }

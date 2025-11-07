@@ -192,11 +192,16 @@ import {
   UniffiError,
   UniffiInternalError,
   UniffiRustCaller,
+  UniffiAbstractObject,
+  UniffiRustArcPtr,
+  UnsafeMutableRawPointer,
   uniffiCreateFfiConverterString,
   uniffiCreateRecord,
   uniffiRustCallAsync,
   uniffiTypeNameSymbol,
   variantOrdinalSymbol,
+  destructorGuardSymbol,
+  pointerLiteralSymbol,
 } from 'uniffi-bindgen-react-native';
 
 // Get converters from the other files, if any.
@@ -364,6 +369,87 @@ export const {{ enum_def.name() | typescript_ffi_converter_struct_enum_name }} =
 // Object definitions:
 // ==========
 
+{% for object_def in ci.object_definitions() %}
+export type {{ object_def.name() | typescript_protocol_name }} = {
+  {% for method_def in object_def.methods() %}
+    {%- call docstring(method_def.docstring()) -%}
+    {%- if method_def.is_async() -%}/* async */ {%- endif -%}{{ method_def.name() | typescript_var_name }}(
+      {%- call param_list(method_def) -%}
+    ){% call function_return_type_or_void(method_def) %};
+  {% endfor %}
+};
+
+export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstractObject implements {{ object_def.name() | typescript_protocol_name }} {
+  readonly [uniffiTypeNameSymbol] = '{{ object_def.name() }}';
+  readonly [destructorGuardSymbol]: UniffiRustArcPtr;
+  readonly [pointerLiteralSymbol]: UnsafeMutableRawPointer;
+
+  // FIXME: rename default static method constructor from `static new` -> `constructor`!
+  // This might also require adding some other alternate construction path that other constructors
+  // can use instead of `new Foo()`.
+
+  // Constructors:
+  {% for constructor_fn in object_def.constructors() -%}
+  {% call docstring(constructor_fn.docstring()) %}
+  static {{ constructor_fn.name() | typescript_var_name }}(
+    {%- call param_list(constructor_fn) -%}
+  ){% call function_return_type_or_void(constructor_fn) %} {
+    const object = new {{ object_def.name() | typescript_class_name }}();
+    const pointer = uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return FFI_DYNAMIC_LIB.{{ constructor_fn.ffi_func().name() }}([
+          {% for arg in constructor_fn.arguments() -%}
+            {{ arg.name() | typescript_argument_var_name }}
+            {%- if !loop.last %}, {% endif %}
+          {%- endfor -%}
+
+          {%- if constructor_fn.ffi_func().has_rust_call_status_arg() -%}
+            {%- if !constructor_fn.arguments().is_empty() %}, {% endif -%}
+            callStatus.pointer
+          {%- endif %}
+        ]);
+      },
+      /*liftString:*/ FfiConverterString.lift
+    );
+    object[pointerLiteralSymbol] = pointer;
+    object[destructorGuardSymbol] =
+      uniffiTypeTodoListObjectFactory.bless(pointer);
+
+    return object;
+  }
+  {%- endfor -%}
+
+  // Methods:
+  {% for method_def in object_def.methods() %}
+    {% call docstring(method_def.docstring()) %}
+    {%- if method_def.is_async() -%}async {%- endif -%}{{ method_def.name() | typescript_var_name }}(
+      {%- call param_list(method_def) -%}
+    ){% call function_return_type_or_void(method_def) %} {
+      {%- call function_call_body(method_def) -%}
+    }
+  {% endfor %}
+
+  /**
+   * {@inheritDoc uniffi-bindgen-react-native#UniffiAbstractObject.uniffiDestroy}
+   */
+  uniffiDestroy(): void {
+    const ptr = (this as any)[destructorGuardSymbol];
+    if (typeof ptr !== 'undefined') {
+      const pointer = {{ object_def.name() | typescript_ffi_object_factory_name }}.pointer(this);
+      {{ object_def.name() | typescript_ffi_object_factory_name }}.freePointer(pointer);
+      {{ object_def.name() | typescript_ffi_object_factory_name }}.unbless(ptr);
+      delete (this as any)[destructorGuardSymbol];
+    }
+  }
+  [Symbol.dispose] = this.uniffiDestroy
+
+  static instanceOf(obj: any): obj is {{ object_def.name() | typescript_class_name }} {
+    return {{ object_def.name() | typescript_ffi_object_factory_name }}.isConcreteType(obj);
+  }
+
+  // FIXME: maybe add `.equal(a, b)` static method like many protobuf libraries have?
+}
+{% endfor %}
 
 // ==========
 // Function definitions:
