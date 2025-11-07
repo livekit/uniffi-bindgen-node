@@ -488,6 +488,104 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
   // FIXME: maybe add `.equal(a, b)` static method like many protobuf libraries have?
   // FIXME: maybe add `.clone()` method?
 }
+
+const {{ object_def.name() | typescript_ffi_object_factory_name }}: UniffiObjectFactory<{{ object_def.name() | typescript_class_name }}> =
+  (() => {
+    /// <reference lib="es2021" />
+    const registry =
+      typeof globalThis.FinalizationRegistry !== 'undefined'
+        ? new globalThis.FinalizationRegistry<UnsafeMutableRawPointer>(
+            (heldValue: UnsafeMutableRawPointer) => {
+             {{ object_def.name() | typescript_ffi_object_factory_name }}.freePointer(heldValue);
+            }
+          )
+        : null;
+
+    return {
+      create(pointer: UnsafeMutableRawPointer): {{ object_def.name() | typescript_class_name }} {
+        const instance = Object.create({{ object_def.name() | typescript_class_name }}.prototype);
+        instance[pointerLiteralSymbol] = pointer;
+        instance[destructorGuardSymbol] = this.bless(pointer);
+        instance[uniffiTypeNameSymbol] = '{{ object_def.name() }}';
+        return instance;
+      },
+
+      bless(p: UnsafeMutableRawPointer): UniffiRustArcPtr {
+        const ptr = {
+          p, // make sure this object doesn't get optimized away.
+          markDestroyed: () => undefined,
+        };
+        if (registry) {
+          registry.register(ptr, p, ptr);
+        }
+        return ptr;
+      },
+
+      unbless(ptr: UniffiRustArcPtr) {
+        if (registry) {
+          registry.unregister(ptr);
+        }
+      },
+
+      pointer(obj: {{ object_def.name() | typescript_class_name }}): UnsafeMutableRawPointer {
+        if (typeof (obj as any)[destructorGuardSymbol] === 'undefined') {
+          throw new UniffiInternalError.UnexpectedNullPointer();
+        }
+        return (obj as any)[pointerLiteralSymbol];
+      },
+
+      clonePointer(obj: {{ object_def.name() | typescript_class_name }}): UnsafeMutableRawPointer {
+        const handleArg = this.pointer(obj);
+        return uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) => {
+            return FFI_DYNAMIC_LIB.{{ object_def.ffi_object_clone().name() }}([
+              {% for arg in object_def.ffi_object_clone().arguments() -%}
+                {{ arg.name() | typescript_argument_var_name }}
+                {%- if !loop.last %}, {% endif %}
+              {%- endfor -%}
+
+              {%- if object_def.ffi_object_clone().has_rust_call_status_arg() -%}
+                {%- if !object_def.ffi_object_clone().arguments().is_empty() %}, {% endif -%}
+                callStatus.pointer
+              {%- endif %}
+            ]);
+          },
+          /*liftString:*/ FfiConverterString.lift
+        );
+      },
+
+      freePointer(handleArg: UnsafeMutableRawPointer): void {
+        uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) => {
+            return FFI_DYNAMIC_LIB.{{ object_def.ffi_object_free().name() }}([
+              {% for arg in object_def.ffi_object_free().arguments() -%}
+                {{ arg.name() | typescript_argument_var_name }}
+                {%- if !loop.last %}, {% endif %}
+              {%- endfor -%}
+
+              {%- if object_def.ffi_object_free().has_rust_call_status_arg() -%}
+                {%- if !object_def.ffi_object_free().arguments().is_empty() %}, {% endif -%}
+                callStatus.pointer
+              {%- endif %}
+            ]);
+          },
+          /*liftString:*/ FfiConverterString.lift
+        );
+      },
+
+      isConcreteType(obj: any): obj is {{ object_def.name() | typescript_class_name }} {
+        return (
+          obj[destructorGuardSymbol] && obj[uniffiTypeNameSymbol] === '{{ object_def.name() }}'
+        );
+      },
+    };
+  })();
+
+// FfiConverter for TodoListInterface
+const {{ object_def.name() | typescript_ffi_converter_struct_enum_object_name }} = new FfiConverterObject(
+  {{ object_def.name() | typescript_ffi_object_factory_name }}
+);
+
 {% endfor %}
 
 // ==========
