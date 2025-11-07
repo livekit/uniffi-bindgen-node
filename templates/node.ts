@@ -252,7 +252,7 @@ export type {{ record_def.name() | typescript_class_name }} = {
 }
 
 export const {{ record_def.name() | typescript_class_name }} = (() => {
-  const defaults = () => ({});
+  const defaults = () => ({}); // FIXME: add defaults here!
   const create = (() => {
     return uniffiCreateRecord<{{ record_def.name() | typescript_class_name }}, ReturnType<typeof defaults>>(
       defaults
@@ -260,13 +260,13 @@ export const {{ record_def.name() | typescript_class_name }} = (() => {
   })();
   return Object.freeze({
     /**
-     * Create a frozen instance of {@link ApiCredentials}, with defaults specified
+     * Create a frozen instance of {@link {{ record_def.name() | typescript_class_name }}}, with defaults specified
      * in Rust, in the {@link {{ci.crate_name()}}} crate.
      */
     create,
 
     /**
-     * Create a frozen instance of {@link ApiCredentials}, with defaults specified
+     * Create a frozen instance of {@link {{ record_def.name() | typescript_class_name }}}, with defaults specified
      * in Rust, in the {@link {{ci.crate_name()}}} crate.
      */
     new: create,
