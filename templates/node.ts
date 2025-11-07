@@ -10,12 +10,16 @@
     {%- endif -%}
 {% endmacro %}
 
-{% macro param_list(func) %}
+{% macro function_arg_list(func) %}
 	{%- for arg in func.arguments() -%}
 	    {%- let type_ = arg.as_type() -%}
 	    {{ arg.name() | typescript_var_name }}: {{ arg | typescript_type_name }}
 		{%- if !loop.last %}, {% endif -%}
 	{%- endfor -%}
+  {%- if func.is_async() -%}
+    {%- if !func.arguments().is_empty() %}, {% endif -%}
+    asyncOpts_?: { signal: AbortSignal }
+  {%- endif -%}
 {%- endmacro %}
 
 {%- macro function_return_type(func_def) -%}
@@ -382,8 +386,8 @@ export const {{ enum_def.name() | typescript_ffi_converter_struct_enum_name }} =
 export type {{ object_def.name() | typescript_protocol_name }} = {
   {% for method_def in object_def.methods() %}
     {%- call docstring(method_def.docstring()) -%}
-    {%- if method_def.is_async() -%}/* async */ {%- endif -%}{{ method_def.name() | typescript_var_name }}(
-      {%- call param_list(method_def) -%}
+    {%- if method_def.is_async() -%}/* async */ {% endif -%}{{ method_def.name() | typescript_var_name }}(
+      {%- call function_arg_list(method_def) -%}
     ){% call function_return_type_or_void(method_def) %};
   {% endfor %}
 };
@@ -401,7 +405,7 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
   {% for constructor_fn in object_def.constructors() -%}
   {% call docstring(constructor_fn.docstring()) %}
   static {{ constructor_fn.name() | typescript_var_name }}(
-    {%- call param_list(constructor_fn) -%}
+    {%- call function_arg_list(constructor_fn) -%}
   ){% call function_return_type_or_void(constructor_fn) %} {
     const object = new {{ object_def.name() | typescript_class_name }}();
     const pointer = uniffiCaller.rustCall(
@@ -431,8 +435,8 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
   // Methods:
   {% for method_def in object_def.methods() %}
     {% call docstring(method_def.docstring()) %}
-    {%- if method_def.is_async() -%}async {%- endif -%}{{ method_def.name() | typescript_var_name }}(
-      {%- call param_list(method_def) -%}
+    {%- if method_def.is_async() -%}async {% endif -%}{{ method_def.name() | typescript_var_name }}(
+      {%- call function_arg_list(method_def) -%}
     ){% call function_return_type_or_void(method_def) %} {
       {%- call function_call_body(method_def) -%}
     }
@@ -467,11 +471,7 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
 {% for func_def in ci.function_definitions() %}
 {% call docstring(func_def.docstring()) %}
 export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() | typescript_fn_name }}(
-  {%- call param_list(func_def) -%}
-  {%- if func_def.is_async() -%}
-    {%- if !func_def.arguments().is_empty() %}, {% endif -%}
-    asyncOpts_?: { signal: AbortSignal }
-  {%- endif -%}
+  {%- call function_arg_list(func_def) -%}
 ){%- if let Some(ret_type) = func_def.return_type() -%}: {% if func_def.is_async() -%}
   Promise<{%- endif -%}{{ ret_type | typescript_type_name }}{%- if func_def.is_async() -%}>{%- endif -%}
 {%- endif %} {
