@@ -486,6 +486,7 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
   }
 
   // FIXME: maybe add `.equal(a, b)` static method like many protobuf libraries have?
+  // FIXME: maybe add `.clone()` method?
 }
 {% endfor %}
 
