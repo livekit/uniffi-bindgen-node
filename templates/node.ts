@@ -35,7 +35,7 @@
   {%- if func_def.return_type().is_none() -%}: void{%- endif %}
 {%- endmacro -%}
 
-{% macro function_call_body(func_def) %}
+{% macro function_call_body(func_def, associated_object_name = "") %}
   {%- if func_def.is_async() %}
     /* Async function call: */
     let lastPollCallbackPointer: Array<JsExternal> | null = null;
@@ -64,6 +64,11 @@
       /*rustFutureFunc:*/ () => {
         console.log("{{ func_def.ffi_func().name() }} async call starting...");
         const returnedHandle = FFI_DYNAMIC_LIB.{{ func_def.ffi_func().name() }}([
+          {% if let Some(self_type) = func_def.self_type() -%}
+            {{ associated_object_name | typescript_ffi_object_factory_name }}.clonePointer(this)
+            {%- if !func_def.arguments().is_empty() %}, {% endif -%}
+          {% endif -%}
+
           {% for arg in func_def.arguments() -%}
             {{ arg.name() | typescript_argument_var_name }}
             {%- if !loop.last %}, {% endif %}
@@ -154,7 +159,7 @@
         console.log("{{ func_def.ffi_func().name() }} call starting...");
         const returnValue = FFI_DYNAMIC_LIB.{{ func_def.ffi_func().name() }}([
           {% if let Some(self_type) = func_def.self_type() -%}
-            this[pointerLiteralSymbol] /* FIXME: the ubrn bindings do a XXXObjectFactory.clonePointer(this) here, is that better for some reason? */
+            {{ associated_object_name | typescript_ffi_object_factory_name }}.clonePointer(this)
             {%- if !func_def.arguments().is_empty() %}, {% endif -%}
           {% endif -%}
 
@@ -438,7 +443,7 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
     {%- if method_def.is_async() -%}async {% endif -%}{{ method_def.name() | typescript_var_name }}(
       {%- call function_arg_list(method_def) -%}
     ){% call function_return_type_or_void(method_def) %} {
-      {%- call function_call_body(method_def) -%}
+      {%- call function_call_body(method_def, object_def.name()) -%}
     }
   {% endfor %}
 
