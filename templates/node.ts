@@ -424,7 +424,8 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
   static {{ constructor_fn.name() | typescript_var_name }}(
     {%- call function_arg_list(constructor_fn) -%}
   ){% call function_return_type_or_void(constructor_fn) %} {
-    const object = new {{ object_def.name() | typescript_class_name }}();
+
+    // const object = new {{ object_def.name() | typescript_class_name }}();
     const pointer = uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return FFI_DYNAMIC_LIB.{{ constructor_fn.ffi_func().name() }}([
@@ -441,9 +442,9 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
       },
       /*liftString:*/ FfiConverterString.lift
     );
-    object[pointerLiteralSymbol] = pointer;
-    object[destructorGuardSymbol] =
-      uniffiTypeTodoListObjectFactory.bless(pointer);
+    const object = {{ object_def.name() | typescript_ffi_object_factory_name }}.create(pointer);
+    // (object as any)[pointerLiteralSymbol] = pointer;
+    // (object as any)[destructorGuardSymbol] = uniffiTypeTodoListObjectFactory.bless(pointer);
 
     return object;
   }
