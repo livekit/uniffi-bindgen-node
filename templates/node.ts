@@ -296,7 +296,7 @@ export const {{ record_def.name() | typescript_class_name }} = (() => {
   });
 })();
 
-const {{ record_def.name() | typescript_ffi_converter_struct_enum_name }} = (() => {
+const {{ record_def.name() | typescript_ffi_converter_struct_enum_object_name }} = (() => {
   type TypeName = {{ record_def.name() | typescript_class_name }};
   class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
     read(from: RustBuffer): TypeName {
@@ -351,7 +351,7 @@ export type {{ enum_def.name() | typescript_class_name }} =
     {%- endif -%}
 {%- endfor %}
 
-export const {{ enum_def.name() | typescript_ffi_converter_struct_enum_name }} = (() => {
+export const {{ enum_def.name() | typescript_ffi_converter_struct_enum_object_name }} = (() => {
   const ordinalConverter = FfiConverterInt32;
   type TypeName = {{ enum_def.name() | typescript_class_name }};
   class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
