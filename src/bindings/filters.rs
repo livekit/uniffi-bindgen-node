@@ -225,7 +225,7 @@ pub fn typescript_ffi_converter_name(typ: &impl AsType, askama_values: &dyn aska
         Type::Bytes => "FfiConverterBytes".into(),
         Type::Timestamp => "FfiConverterTimestamp".into(),
         Type::Duration => "FfiConverterDuration".into(),
-        Type::Enum { name, .. } | Type::Record { name, .. } => typescript_ffi_converter_struct_enum_name(&name, askama_values)?,
+        Type::Enum { name, .. } | Type::Record { name, .. } => typescript_ffi_converter_struct_enum_object_name(&name, askama_values)?,
         Type::Object { name, imp, .. } => typescript_class_name(&imp.rust_name_for(&name), askama_values)?,
         Type::CallbackInterface { name, .. } => name.to_lower_camel_case(),
         Type::Optional { inner_type } => {
@@ -317,7 +317,7 @@ pub fn typescript_callback_name(raw_name: &str, _: &dyn askama::Values) -> Resul
     Ok(format!("UniffiCallback{}", raw_name.to_upper_camel_case()))
 }
 
-pub fn typescript_ffi_converter_struct_enum_name(struct_name: &str, _: &dyn askama::Values) -> Result<String> {
+pub fn typescript_ffi_converter_struct_enum_object_name(struct_name: &str, _: &dyn askama::Values) -> Result<String> {
     Ok(format!("FfiConverterType{}", struct_name.to_upper_camel_case()))
 }
 
