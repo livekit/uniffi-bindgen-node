@@ -51,6 +51,10 @@
       });
     };
 
+    {% for arg in func_def.arguments() -%}
+      let {{ arg.name() | typescript_argument_var_name }} = {{ arg.name() | typescript_var_name | typescript_ffi_converter_lower_with(arg.as_type().borrow()) }};
+    {% endfor -%}
+
     const returnValue = await uniffiRustCallAsync(
       /*rustCaller:*/ uniffiCaller,
       /*rustFutureFunc:*/ () => {
@@ -120,6 +124,11 @@
       /*liftString:*/ FfiConverterString.lift,
       /*asyncOpts:*/ asyncOpts_
     );
+
+    {% for arg in func_def.arguments() -%}
+      {{ arg.name() | typescript_argument_var_name | typescript_ffi_converter_lower_with_cleanup(arg.as_type().borrow()) }}
+    {% endfor -%}
+
     return returnValue;
 
   {% else %}
