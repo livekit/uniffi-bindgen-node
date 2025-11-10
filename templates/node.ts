@@ -427,6 +427,10 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
   constructor({%- call function_arg_list(constructor_fn) -%}) {
     super();
 
+    {% for arg in constructor_fn.arguments() -%}
+      let {{ arg.name() | typescript_argument_var_name }} = {{ arg.name() | typescript_var_name | typescript_ffi_converter_lower_with(arg.as_type().borrow()) }};
+    {% endfor -%}
+
     const pointer = uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return FFI_DYNAMIC_LIB.{{ constructor_fn.ffi_func().name() }}([
@@ -443,6 +447,10 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
       },
       /*liftString:*/ FfiConverterString.lift
     );
+
+    {% for arg in constructor_fn.arguments() -%}
+      {{ arg.name() | typescript_argument_var_name | typescript_ffi_converter_lower_with_cleanup(arg.as_type().borrow()) }}
+    {% endfor -%}
 
     this[pointerLiteralSymbol] = pointer;
     this[destructorGuardSymbol] = {{ object_def.name() | typescript_ffi_object_factory_name }}.bless(pointer);
