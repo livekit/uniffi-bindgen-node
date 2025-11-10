@@ -414,6 +414,7 @@ export type {{ object_def.name() | typescript_protocol_name }} = {
   {% endfor %}
 };
 
+{% call docstring(object_def.docstring()) %}
 export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstractObject implements {{ object_def.name() | typescript_protocol_name }} {
   readonly [uniffiTypeNameSymbol] = '{{ object_def.name() }}';
   readonly [destructorGuardSymbol]: UniffiRustArcPtr;
