@@ -423,9 +423,7 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
   {% for constructor_fn in object_def.constructors() -%}
   {% call docstring(constructor_fn.docstring()) %}
   {% if constructor_fn.is_primary_constructor() -%}
-  constructor(
-    {%- call function_arg_list(constructor_fn) -%}
-  ){% call function_return_type_or_void(constructor_fn) %} {
+  constructor({%- call function_arg_list(constructor_fn) -%}) {
     super();
 
     const pointer = uniffiCaller.rustCall(
