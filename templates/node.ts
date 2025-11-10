@@ -630,6 +630,7 @@ import {
   createPointer,
   freePointer,
   PointerType,
+  FieldType,
 } from 'ffi-rs';
 
 // FIXME: un hard code path and make it platform specific
@@ -812,7 +813,7 @@ class UniffiRustCallStatus {
   }
 }
 
-class StructPointer<Struct extends object, StructDataType> {
+class StructPointer<Struct extends object, StructDataType extends FieldType> {
   private _pointer: JsExternal | null;
   get pointer(): JsExternal {
     if (!this._pointer) {
