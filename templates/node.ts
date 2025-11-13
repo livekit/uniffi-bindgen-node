@@ -76,7 +76,7 @@
 
           {%- if func_def.ffi_func().has_rust_call_status_arg() -%}
             {%- if !func_def.arguments().is_empty() || func_def.self_type().is_some() %}, {% endif -%}
-            callStatus.pointer
+            callStatus
           {%- endif %}
         ]);
         console.log("{{ func_def.ffi_func().name() }} returned handle:", returnedHandle);
@@ -122,7 +122,7 @@
       },
       /*completeFunc:*/ (handle, callStatus) => {
         console.log('{{ func_def.ffi_func().name() }} async complete:');
-        return FFI_DYNAMIC_LIB.{{ func_def.ffi_rust_future_complete(ci) }}([handle, callStatus.pointer])
+        return FFI_DYNAMIC_LIB.{{ func_def.ffi_rust_future_complete(ci) }}([handle, callStatus])
       },
       /*freeFunc:*/ (handle) => {
         console.log('{{ func_def.ffi_func().name() }} async free:');
@@ -175,10 +175,10 @@
 
           {%- if func_def.ffi_func().has_rust_call_status_arg() -%}
             {%- if !func_def.arguments().is_empty() || func_def.self_type().is_some() %}, {% endif -%}
-            callStatus.pointer
+            callStatus
           {%- endif %}
         ]);
-        console.log("{{ func_def.ffi_func().name() }} return value:", returnValue{%- if func_def.ffi_func().has_rust_call_status_arg() -%}, 'Call status:', callStatus.getValue(){%- endif -%});
+        console.log("{{ func_def.ffi_func().name() }} return value:", returnValue{%- if func_def.ffi_func().has_rust_call_status_arg() -%}, 'Call status:', callStatus{%- endif -%});
 
         {% for arg in func_def.arguments() -%}
           {{ arg.name() | typescript_argument_var_name | typescript_ffi_converter_lower_with_cleanup(arg.as_type().borrow()) }}
@@ -239,12 +239,128 @@ import {
   pointerLiteralSymbol,
 } from 'uniffi-bindgen-react-native';
 
-// Get converters from the other files, if any.
-const uniffiCaller = new UniffiRustCaller<UniffiRustCallStatusFacade>(
-  () => {
-    return UniffiRustCallStatusFacade.allocate();
+const CALL_SUCCESS = 0, CALL_ERROR = 1, CALL_UNEXPECTED_ERROR = 2, CALL_CANCELLED = 3;
+
+const [nullPointer] = unwrapPointer(createPointer({
+  paramsType: [DataType.Void],
+  paramsValue: [undefined]
+}));
+
+class UniffiFfiRsRustCaller {
+  rustCall<T>(
+    caller: (status: JsExternal) => T,
+    liftString: (bytes: UniffiByteArray) => string,
+  ): T {
+    return this.makeRustCall(caller, liftString);
   }
-);
+
+  rustCallWithError<T>(
+    liftError: (buffer: UniffiByteArray) => Error,
+    caller: (status: JsExternal) => T,
+    liftString: (bytes: UniffiByteArray) => string,
+  ): T {
+    return this.makeRustCall(caller, liftString, liftError);
+  }
+
+  createCallStatus(): [JsExternal] {
+    const $callStatus = createPointer({
+      paramsType: [DataType_UniffiRustCallStatus],
+      paramsValue: [{
+        code: CALL_SUCCESS,
+        error_buf: { capacity: 0, len: 0, data: nullPointer } // TODO: is this the best way to pass a null pointer?
+      }],
+    });
+
+    return $callStatus as [JsExternal];
+  }
+
+  createErrorStatus(code: number, errorBuf: UniffiByteArray): JsExternal {
+    // FIXME: what is this supposed to do and how does it not allocate `errorBuf` when making the
+    // call status struct?
+    throw new Error('UniffiRustCaller.createErrorStatus is unimplemented.');
+
+    // const status = this.statusConstructor();
+    // status.code = code;
+    // status.errorBuf = errorBuf;
+    // return status;
+  }
+
+  makeRustCall<T>(
+    caller: (status: JsExternal) => T,
+    liftString: (bytes: UniffiByteArray) => string,
+    liftError?: (buffer: UniffiByteArray) => Error,
+  ): T {
+    const $callStatus = this.createCallStatus();
+    let returnedVal = caller(unwrapPointer($callStatus)[0]);
+
+    const [callStatus] = restorePointer({
+      retType: [DataType_UniffiRustCallStatus],
+      paramsValue: $callStatus,
+    });
+    uniffiCheckCallStatus(callStatus, liftString, liftError);
+
+    return returnedVal;
+  }
+}
+
+function uniffiCheckCallStatus(
+  callStatus: UniffiRustCallStatusStruct,
+  liftString: (bytes: UniffiByteArray) => string,
+  listError?: (buffer: UniffiByteArray) => Error,
+) {
+  switch (callStatus.code) {
+    case CALL_SUCCESS:
+      return;
+
+    case CALL_ERROR: {
+      // - Rust will not set the data pointer for a sucessful return.
+      // - If unsuccesful, lift the error from the RustBuf and free.
+      if (!isNullPointer(callStatus.error_buf.data)) {
+        const struct = new UniffiRustBufferValue(callStatus.error_buf);
+        const errorBufBytes = struct.consumeIntoUint8Array(); // FIXME: ADD FREE HERE
+
+        if (listError) {
+          throw listError(errorBufBytes);
+        }
+      }
+      throw new UniffiInternalError.UnexpectedRustCallError();
+    }
+
+    case CALL_UNEXPECTED_ERROR: {
+      // When the rust code sees a panic, it tries to construct a RustBuffer
+      // with the message.  But if that code panics, then it just sends back
+      // an empty buffer.
+
+      if (!isNullPointer(callStatus.error_buf.data)) {
+        const struct = new UniffiRustBufferValue(callStatus.error_buf);
+        const errorBufBytes = struct.consumeIntoUint8Array(); // FIXME: ADD FREE HERE
+
+        if (errorBufBytes.byteLength > 0) {
+          const liftedErrorBuf = liftString(errorBufBytes);
+          throw new UniffiInternalError.RustPanic(liftedErrorBuf);
+        }
+      }
+
+      throw new UniffiInternalError.RustPanic("Rust panic");
+    }
+
+    case CALL_CANCELLED:
+      // #RUST_TASK_CANCELLATION:
+      //
+      // This error code is expected when a Rust Future is cancelled or aborted, either
+      // from the foreign side, or from within Rust itself.
+      //
+      // As of uniffi-rs v0.28.0, call cancellation is only checked for in the Swift bindings,
+      // and uses an Unimplemeneted error.
+      throw new UniffiInternalError.AbortError();
+
+    default:
+      throw new UniffiInternalError.UnexpectedRustCallStatusCode();
+  }
+}
+
+// Get converters from the other files, if any.
+const uniffiCaller = new UniffiFfiRsRustCaller();
 
 const uniffiIsDebug =
   // @ts-ignore -- The process global might not be defined
@@ -441,7 +557,7 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
 
           {%- if constructor_fn.ffi_func().has_rust_call_status_arg() -%}
             {%- if !constructor_fn.arguments().is_empty() %}, {% endif -%}
-            callStatus.pointer
+            callStatus
           {%- endif %}
         ]);
       },
@@ -553,7 +669,7 @@ const {{ object_def.name() | typescript_ffi_object_factory_name }}: UniffiObject
 
               {%- if object_def.ffi_object_clone().has_rust_call_status_arg() -%}
                 {%- if !object_def.ffi_object_clone().arguments().is_empty() %}, {% endif -%}
-                callStatus.pointer
+                callStatus
               {%- endif %}
             ]);
           },
@@ -572,7 +688,7 @@ const {{ object_def.name() | typescript_ffi_object_factory_name }}: UniffiObject
 
               {%- if object_def.ffi_object_free().has_rust_call_status_arg() -%}
                 {%- if !object_def.ffi_object_free().arguments().is_empty() %}, {% endif -%}
-                callStatus.pointer
+                callStatus
               {%- endif %}
             ]);
           },
@@ -629,6 +745,7 @@ import {
   unwrapPointer,
   createPointer,
   freePointer,
+  isNullPointer,
   PointerType,
   FieldType,
 } from 'ffi-rs';
@@ -767,184 +884,11 @@ class UniffiRustBufferFacade implements UniffiRustBufferStruct {
   }
 }
 
-
-type UniffiRustCallStatusStruct = { code: number, errorBuf?: UniffiRustBufferStruct };
+type UniffiRustCallStatusStruct = { code: number, error_buf: UniffiRustBufferStruct };
 const DataType_UniffiRustCallStatus = {
   code: DataType.U8,
-  errorBuf: DataType_UniffiRustBufferStruct,
-
-  ffiTypeTag: DataType.StackStruct,
+  error_buf: DataType_UniffiRustBufferStruct,
 };
-
-/** A UniffiRustCallStatus represents the result of a function call. It must be cleaned up by
-  * calling .free() once it is no longer used because it contains fields which can refer to data
-  * on the heap. */
-class UniffiRustCallStatus {
-  private struct: UniffiRustCallStatusStruct | null;
-  private errorBuf: UniffiRustBufferValue | null;
-
-  private constructor(struct: UniffiRustCallStatusStruct, errorBuf: UniffiRustBufferValue) {
-    this.struct = struct;
-    this.errorBuf = errorBuf;
-  }
-
-  static allocate() {
-    const buffer = UniffiRustBufferValue.allocateEmpty();
-    const struct = { code: 0, errorBuf: buffer.toStruct() };
-    return new UniffiRustCallStatus(struct, buffer);
-  }
-
-  toStruct() {
-    if (!this.struct || !this.errorBuf) {
-      throw new Error('Error getting struct form of UniffiRustCallStatusNew - struct has already been freed! This is not allowed.');
-    }
-    return this.struct;
-  }
-
-  free() {
-    console.log('UniffiRustCallStatus FREE CALLED');
-    if (!this.struct || !this.errorBuf) {
-      throw new Error('Error freeing UniffiRustCallStatusNew - already been freed! This is not allowed.');
-    }
-
-    this.errorBuf.destroy();
-    this.errorBuf = null;
-    this.struct = null;
-  }
-}
-
-class StructPointer<Struct extends object, StructDataType extends FieldType> {
-  private _pointer: JsExternal | null;
-  get pointer(): JsExternal {
-    if (!this._pointer) {
-      throw new Error('Error resolving pointer for UniffiRustCallStatusPointer - pointer has been freed! This is not allowed.');
-    }
-    return this._pointer;
-  }
-
-  private dataType: StructDataType;
-  private struct: Struct | null;
-  private structName: string;
-
-  constructor(struct: Struct, dataType: StructDataType, structName: string) {
-    this.struct = struct;
-    this.dataType = dataType;
-    this.structName = structName;
-
-    const [ pointer ] = createPointer({
-      paramsType: [this.dataType],
-      paramsValue: [this.struct],
-    });
-    this._pointer = pointer;
-  }
-
-  toStruct() { return this.struct; }
-
-  // FIXME: make this private, right now it is public so it can be logged for debugging
-  getValue(): Struct {
-    const [ contents ] = restorePointer({
-      retType: [this.dataType],
-      paramsValue: [this.pointer],
-    });
-    return contents;
-  }
-
-  free() {
-    console.log(`StructPointer ${this.structName} FREE CALLED`);
-    if (!this._pointer) {
-      throw new Error(`Error resolving pointer for ${this.structName} - pointer has already been freed! This is not allowed.`);
-    }
-
-    freePointer({
-      paramsType: [this.dataType],
-      paramsValue: [this._pointer],
-      pointerType: PointerType.RsPointer,
-    });
-    this._pointer = null;
-  }
-}
-
-/** A single purpose facade meant to adapt {@link UniffiRustCallStatus} to satisify the contract of {@link UniffiRustCaller} */
-class UniffiRustCallStatusFacade {
-  private structPointer: StructPointer<UniffiRustCallStatusStruct, typeof DataType_UniffiRustCallStatus> | null;
-  get pointer(): JsExternal {
-    if (!this.structPointer) {
-      throw new Error('Error resolving pointer for UniffiRustCallStatusPointer - pointer has been freed! This is not allowed.');
-    }
-    return this.structPointer.pointer;
-  }
-
-  private callStatus: UniffiRustCallStatus | null;
-
-  private constructor(
-    callStatusPointer: StructPointer<UniffiRustCallStatusStruct, typeof DataType_UniffiRustCallStatus>,
-    callStatus: UniffiRustCallStatus,
-  ) {
-    this.structPointer = callStatusPointer;
-    this.callStatus = callStatus;
-  }
-
-  static allocate() {
-    const value = UniffiRustCallStatus.allocate();
-    const structPointer = new StructPointer(
-      value.toStruct(),
-      DataType_UniffiRustCallStatus,
-      'UniffiRustCallStatusFacade',
-    );
-
-    return new UniffiRustCallStatusFacade(structPointer, value);
-  }
-
-  // FIXME: make this private, right now it is public so it can be logged for debugging
-  getValue(): UniffiRustCallStatusStruct {
-    const [ contents ] = restorePointer({
-      retType: [DataType_UniffiRustCallStatus],
-      paramsValue: [this.pointer],
-    });
-    return contents;
-  }
-
-  get code(): number {
-    const value = this.getValue();
-
-    // Note: do this free here to temporarily hack around no explicit `.free()` being done by
-    // UniffiRustCaller on this object
-    if (value.code === 0) {
-      this.free();
-    }
-
-    return value.code;
-  }
-
-  get errorBuf(): UniffiByteArray | undefined {
-    const value = this.getValue();
-
-    // FIXME: should value.code be checked for `0` here and `undefined` returned?
-    // That seems logical given the return type but check existing bindgens and see if
-    // that is what they do here.
-
-    const result = (new UniffiRustBufferValue(value.errorBuf)).toUint8Array();
-
-    // Note: do this free here to temporarily hack around no explicit `.free()` being done by
-    // UniffiRustCaller on this object
-    this.free();
-
-    return result;
-  }
-
-  free() {
-    console.log('UniffiRustCallStatusFacade FREE CALLED');
-    if (!this.structPointer || !this.callStatus) {
-      throw new Error('Error freeing UniffiRustCallStatusFacade - it has already been freed! This is not allowed.');
-    }
-
-    this.structPointer.free();
-    this.structPointer = null;
-
-    this.callStatus.free();
-    this.callStatus = null;
-  }
-}
 
 {%- for definition in ci.ffi_definitions() -%}
   {%- match definition %}
