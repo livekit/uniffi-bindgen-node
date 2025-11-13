@@ -896,7 +896,7 @@ class UniffiRustCallStatusFacade {
   }
 
   // FIXME: make this private, right now it is public so it can be logged for debugging
-  getValue() {
+  getValue(): UniffiRustCallStatusStruct {
     const [ contents ] = restorePointer({
       retType: [DataType_UniffiRustCallStatus],
       paramsValue: [this.pointer],
