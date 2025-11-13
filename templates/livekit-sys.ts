@@ -1,3 +1,4 @@
+import { join } from "path";
 import {
   DataType,
   JsExternal,
@@ -22,8 +23,19 @@ import {
 const CALL_SUCCESS = 0, CALL_ERROR = 1, CALL_UNEXPECTED_ERROR = 2, CALL_CANCELLED = 3;
 
 
-// FIXME: un hard code path and make it platform specific
-open({ library: 'lib{{ ci.crate_name() }}', path: "/Users/ryan/w/livekit/rust-sdks/target/release/liblivekit_uniffi.dylib" })
+/// Load the dynamic library.
+function _uniffi_load() {
+  const library = "lib{{ ci.crate_name() }}";
+  const { platform } = process;
+  let ext = { darwin: "dylib", win32: "dll", linux: "so" }[platform];
+  if (!ext) {
+    console.warn("Unsupported platform:", platform);
+    ext = "so";
+  }
+  const libraryPath = join(__dirname, `${library}.${ext}`);
+  open({ library, path: libraryPath });
+}
+_uniffi_load();
 
 // Release library memory before process terminates
 // TODO: is this even really required?
