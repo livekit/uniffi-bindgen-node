@@ -765,6 +765,14 @@ const DataType_UniffiRustBufferStruct = {
   ffiTypeTag: DataType.StackStruct,
 };
 
+type UniffiForeignBytes = { len: number, data: JsExternal };
+const DataType_UniffiForeignBytes = {
+  len: DataType.I32,
+  data: DataType.External,
+
+  ffiTypeTag: DataType.StackStruct,
+};
+
 /** A UniffiRustBufferValue represents stack allocated structure containing pointer to series of
   * bytes most likely on the heap, along with the size of that data in bytes.
   *
@@ -783,18 +791,88 @@ class UniffiRustBufferValue {
   }
 
   static allocateWithBytes(bytes: Uint8Array) {
-    const [dataPointer] = createPointer({
+    console.log('INPUT:', bytes, bytes.byteLength);
+
+    const [ dataPointer ] = createPointer({
       paramsType: [arrayConstructor({ type: DataType.U8Array, length: bytes.length })],
       paramsValue: [bytes],
     });
 
-    const [ dataPointerUnwrapped ] = unwrapPointer([dataPointer]);
+    // const [foreignBytesPointer] = createPointer({
+    //   paramsType: [DataType_UniffiForeignBytes],
+    //   paramsValue: [{ len: bytes.byteLength, data: unwrapPointer([dataPointer])[0] }],
+    // });
 
-    return new UniffiRustBufferValue({
-      len: bytes.length,
-      capacity: bytes.length,
-      data: dataPointerUnwrapped,
+    // const [ dataPointerUnwrapped ] = unwrapPointer([dataPointer]);
+
+    console.log('Data pointer:', dataPointer);
+    const rustBuffer = uniffiCaller.rustCall(
+      (callStatus) => {
+        return FFI_DYNAMIC_LIB.ffi_livekit_uniffi_rustbuffer_from_bytes([
+          { data: dataPointer, len: bytes.byteLength },
+          callStatus,
+        ]);
+      },
+      /*liftString:*/ {{ &Type::String | typescript_ffi_converter_name }}.lift,
+    );
+
+    const [contents] = restorePointer({
+      retType: [arrayConstructor({ type: DataType.U8Array, length: Number(rustBuffer.len) })],
+      paramsValue: [rustBuffer.data],
     });
+
+    console.log('Rust buffer:', rustBuffer, '=>', contents);
+
+    // FFI_DYNAMIC_LIB.print_rust_buffer([rustBuffer]);
+
+    return new UniffiRustBufferValue(rustBuffer);
+
+
+
+    // const rustBuffer = uniffiCaller.rustCall(
+    //   (callStatus) => {
+    //     return FFI_DYNAMIC_LIB.ffi_livekit_uniffi_rustbuffer_alloc([
+    //       bytes.byteLength,
+    //       callStatus,
+    //     ]);
+    //   },
+    //   /*liftString:*/ {{ &Type::String | typescript_ffi_converter_name }}.lift,
+    // );
+
+    // const [contents] = restorePointer({
+    //   retType: [arrayConstructor({ type: DataType.U8Array, length: Number(bytes.byteLength) })],
+    //   paramsValue: wrapPointer([rustBuffer.data]),
+    // });
+    // contents.set(bytes, 0);
+    // // Buffer.from(bytes.buffer).copy(contents, 0, 0, bytes.byteLength);
+
+    // console.log('CONTENTS:', contents);
+
+    // const [again] = restorePointer({
+    //   retType: [arrayConstructor({ type: DataType.U8Array, length: Number(bytes.byteLength) })],
+    //   paramsValue: wrapPointer([rustBuffer.data]),
+    // });
+    // console.log('AGAIN:', again);
+
+    // return new UniffiRustBufferValue(rustBuffer);
+
+
+
+
+
+
+    // const [dataPointer] = createPointer({
+    //   paramsType: [arrayConstructor({ type: DataType.U8Array, length: bytes.length })],
+    //   paramsValue: [bytes],
+    // });
+
+    // const [ dataPointerUnwrapped ] = unwrapPointer([dataPointer]);
+
+    // return new UniffiRustBufferValue({
+    //   len: bytes.length,
+    //   capacity: bytes.length,
+    //   data: dataPointerUnwrapped,
+    // });
   }
 
   static allocateEmpty() {
@@ -836,14 +914,19 @@ class UniffiRustBufferValue {
       throw new Error('Error destroying UniffiRustBufferValue - already previously destroyed! Double freeing is not allowed.');
     }
 
-    // FIXME: why can't I call uniffi_destroy_rust_buffer here and need to do the free manually?
-    // FFI_DYNAMIC_LIB.uniffi_destroy_rust_buffer([this.struct]);
-    freePointer({
-      paramsType: [arrayConstructor({ type: DataType.U8Array, length: this.struct.len })],
-      paramsValue: wrapPointer([this.struct.data]),
-      pointerType: PointerType.RsPointer,
-    });
+    // uniffiCaller.rustCall(
+    //   (callStatus) => {
+    //     FFI_DYNAMIC_LIB.ffi_livekit_uniffi_rustbuffer_free([this.struct, callStatus]);
+    //   },
+    //   /*liftString:*/ {{ &Type::String | typescript_ffi_converter_name }}.lift,
+    // );
+    // freePointer({
+    //   paramsType: [arrayConstructor({ type: DataType.U8Array, length: this.struct.len })],
+    //   paramsValue: wrapPointer([this.struct.data]),
+    //   pointerType: PointerType.RsPointer,
+    // });
 
+    // console.log('DONE');
     this.struct = null;
   }
 }
@@ -855,7 +938,6 @@ class UniffiRustBufferValue {
   * It also provides a mechanism to free the underlying UniffiRustBufferValue, which calling
   * rustBufferValue.toStruct() wouldn't provide. */
 class UniffiRustBufferFacade implements UniffiRustBufferStruct {
-  // private pointer: StructPointer<UniffiRustBufferStruct, typeof DataType_UniffiRustBufferStruct> | null;
   private value: UniffiRustBufferValue;
 
   constructor(
@@ -933,6 +1015,30 @@ const DataType_UniffiRustCallStatus = {
   * dynamic library. Using this manually from end-user javascript code is unsafe and this is not
   * recommended. */
 const FFI_DYNAMIC_LIB = define({
+
+    ffi_livekit_uniffi_rustbuffer_alloc: {
+      library: "lib{{ ci.crate_name() }}",
+      paramsType: [DataType.U64, DataType.External],
+      retType: DataType_UniffiRustBufferStruct,
+    },
+    // ffi_livekit_uniffi_rustbuffer_from_bytes: {
+    //   library: "lib{{ ci.crate_name() }}",
+    //   paramsType: [DataType_UniffiForeignBytes, DataType.External],
+    //   retType: DataType_UniffiRustBufferStruct,
+    // },
+    ffi_livekit_uniffi_rustbuffer_free: {
+      library: "lib{{ ci.crate_name() }}",
+      paramsType: [DataType_UniffiRustBufferStruct, DataType.External],
+      retType: DataType.Void,
+    },
+
+    print_rust_buffer: {
+      library: "lib{{ ci.crate_name() }}",
+      paramsType: [DataType_UniffiRustBufferStruct],
+      retType: DataType.Void,
+    },
+
+
     uniffi_destroy_rust_buffer: {
       library: "lib{{ ci.crate_name() }}",
       retType: DataType.Void,
@@ -1023,6 +1129,11 @@ const FFI_DYNAMIC_LIB = define({
 
     {%- endfor %}
 }) as {
+  ffi_livekit_uniffi_rustbuffer_alloc: (args: [bigint, JsExternal]) => UniffiRustBufferStruct,
+  // ffi_livekit_uniffi_rustbuffer_from_bytes: (args: [UniffiForeignBytes, JsExternal]) => UniffiRustBufferStruct,
+  ffi_livekit_uniffi_rustbuffer_free: (args: [UniffiRustBufferStruct, JsExternal]) => void,
+  print_rust_buffer: (args: [UniffiRustBufferStruct]) => void,
+
   uniffi_destroy_rust_buffer: (args: [UniffiRustBufferStruct]) => void,
 
   // uniffi_free_rust_buffer: (args: [JsExternal]) => void,
