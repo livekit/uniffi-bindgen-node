@@ -807,6 +807,12 @@ class UniffiRustBufferValue {
       /*liftString:*/ {{ &Type::String | typescript_ffi_converter_name }}.lift,
     );
 
+    freePointer({
+        paramsType: [arrayConstructor({ type: DataType.U8Array, length: bytes.length })],
+        paramsValue: [dataPointer],
+        pointerType: PointerType.RsPointer
+    });
+
     return new UniffiRustBufferValue({
         ...rustBuffer,
         data: unwrapPointer([rustBuffer.data])[0]
