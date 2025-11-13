@@ -474,7 +474,7 @@ export type {{ enum_def.name() | typescript_class_name }} =
       values: {
         {%- for field_def in variant.fields() -%}
           {%- let type_ = field_def.as_type() %}
-          {{field_def.name() | typescript_var_name}}: {{field_def | typescript_type_name}}
+          {{field_def.name() | typescript_var_name}}_: {{field_def | typescript_type_name}}
           {%- if !loop.last %}, {% endif -%}
         {%- endfor %}
       }
