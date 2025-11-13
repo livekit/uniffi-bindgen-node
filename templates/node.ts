@@ -791,21 +791,12 @@ class UniffiRustBufferValue {
   }
 
   static allocateWithBytes(bytes: Uint8Array) {
-    console.log('INPUT:', bytes, bytes.byteLength);
 
     const [ dataPointer ] = createPointer({
       paramsType: [arrayConstructor({ type: DataType.U8Array, length: bytes.length })],
       paramsValue: [bytes],
     });
 
-    // const [foreignBytesPointer] = createPointer({
-    //   paramsType: [DataType_UniffiForeignBytes],
-    //   paramsValue: [{ len: bytes.byteLength, data: unwrapPointer([dataPointer])[0] }],
-    // });
-
-    // const [ dataPointerUnwrapped ] = unwrapPointer([dataPointer]);
-
-    console.log('Data pointer:', dataPointer);
     const rustBuffer = uniffiCaller.rustCall(
       (callStatus) => {
         return FFI_DYNAMIC_LIB.ffi_livekit_uniffi_rustbuffer_from_bytes([
@@ -816,67 +807,11 @@ class UniffiRustBufferValue {
       /*liftString:*/ {{ &Type::String | typescript_ffi_converter_name }}.lift,
     );
 
-    const [contents] = restorePointer({
-      retType: [arrayConstructor({ type: DataType.U8Array, length: Number(rustBuffer.len) })],
-      paramsValue: [rustBuffer.data],
-    });
-
-    console.log('Rust buffer:', rustBuffer, '=>', contents);
-
-    // FFI_DYNAMIC_LIB.print_rust_buffer([rustBuffer]);
-
     return new UniffiRustBufferValue({
         ...rustBuffer,
         data: unwrapPointer([rustBuffer.data])[0]
         // TODO: figure out why this is necessary.
     });
-
-
-
-    // const rustBuffer = uniffiCaller.rustCall(
-    //   (callStatus) => {
-    //     return FFI_DYNAMIC_LIB.ffi_livekit_uniffi_rustbuffer_alloc([
-    //       bytes.byteLength,
-    //       callStatus,
-    //     ]);
-    //   },
-    //   /*liftString:*/ {{ &Type::String | typescript_ffi_converter_name }}.lift,
-    // );
-
-    // const [contents] = restorePointer({
-    //   retType: [arrayConstructor({ type: DataType.U8Array, length: Number(bytes.byteLength) })],
-    //   paramsValue: wrapPointer([rustBuffer.data]),
-    // });
-    // contents.set(bytes, 0);
-    // // Buffer.from(bytes.buffer).copy(contents, 0, 0, bytes.byteLength);
-
-    // console.log('CONTENTS:', contents);
-
-    // const [again] = restorePointer({
-    //   retType: [arrayConstructor({ type: DataType.U8Array, length: Number(bytes.byteLength) })],
-    //   paramsValue: wrapPointer([rustBuffer.data]),
-    // });
-    // console.log('AGAIN:', again);
-
-    // return new UniffiRustBufferValue(rustBuffer);
-
-
-
-
-
-
-    // const [dataPointer] = createPointer({
-    //   paramsType: [arrayConstructor({ type: DataType.U8Array, length: bytes.length })],
-    //   paramsValue: [bytes],
-    // });
-
-    // const [ dataPointerUnwrapped ] = unwrapPointer([dataPointer]);
-
-    // return new UniffiRustBufferValue({
-    //   len: bytes.length,
-    //   capacity: bytes.length,
-    //   data: dataPointerUnwrapped,
-    // });
   }
 
   static allocateEmpty() {
