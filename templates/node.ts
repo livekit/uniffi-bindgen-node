@@ -825,7 +825,11 @@ class UniffiRustBufferValue {
 
     // FFI_DYNAMIC_LIB.print_rust_buffer([rustBuffer]);
 
-    return new UniffiRustBufferValue(rustBuffer);
+    return new UniffiRustBufferValue({
+        ...rustBuffer,
+        data: unwrapPointer([rustBuffer.data])[0]
+        // TODO: figure out why this is necessary.
+    });
 
 
 
