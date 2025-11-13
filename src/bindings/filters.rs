@@ -172,7 +172,7 @@ pub fn typescript_ffi_type_name(ffi_type: &FfiType, askama_values: &dyn askama::
         FfiType::Float64 => "number".into(), // FIXME: is this right for f64? I am not sure `number` is big enough?
         // FfiType::RustArcPtr(_) => "void *".into(),
         FfiType::RustBuffer(_) => "/* RustBuffer */ UniffiRustBufferStruct".into(),
-        FfiType::ForeignBytes => "JsExternal".into(),
+        FfiType::ForeignBytes => "UniffiForeignBytes".into(),
         FfiType::Callback(name) => format!("/* callback {} */ JsExternal", typescript_callback_name(name, askama_values)?),
         FfiType::Struct(name) => typescript_ffi_struct_name(name, askama_values)?,
         FfiType::Handle => "/* handle */ bigint".into(),
@@ -197,7 +197,7 @@ pub fn typescript_ffi_datatype_name(ffi_type: &FfiType, askama_values: &dyn aska
         FfiType::Float64 => "/* f64 */ DataType.Double".into(), // FIXME: is this right for f64? I am not sure `number` is big enough?
         // FfiType::RustArcPtr(_) => "void *".into(),
         FfiType::RustBuffer(_) => "DataType_UniffiRustBufferStruct".into(),
-        FfiType::ForeignBytes => "DataType.External".into(),
+        FfiType::ForeignBytes => "DataType_UniffiForeignBytes".into(),
         FfiType::Callback(_name) => "/* callback */ DataType.External".into(),
         FfiType::Struct(name) => format!("/* {} */ DataType.U8Array", typescript_ffi_struct_name(name, askama_values)?), // FIXME: this should make struct definitions in ffi-rs
         FfiType::Handle => "/* handle */ DataType.U64".into(),
