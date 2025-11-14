@@ -791,7 +791,6 @@ class UniffiRustBufferValue {
   }
 
   static allocateWithBytes(bytes: Uint8Array) {
-
     const [ dataPointer ] = createPointer({
       paramsType: [arrayConstructor({ type: DataType.U8Array, length: bytes.length })],
       paramsValue: [bytes],
@@ -808,15 +807,15 @@ class UniffiRustBufferValue {
     );
 
     freePointer({
-        paramsType: [arrayConstructor({ type: DataType.U8Array, length: bytes.length })],
-        paramsValue: [dataPointer],
-        pointerType: PointerType.RsPointer
+      paramsType: [arrayConstructor({ type: DataType.U8Array, length: bytes.byteLength })],
+      paramsValue: [dataPointer],
+      pointerType: PointerType.RsPointer
     });
 
     return new UniffiRustBufferValue({
-        ...rustBuffer,
-        data: unwrapPointer([rustBuffer.data])[0]
-        // TODO: figure out why this is necessary.
+      ...rustBuffer,
+      data: unwrapPointer([rustBuffer.data])[0]
+      // TODO: figure out why this is necessary.
     });
   }
 
