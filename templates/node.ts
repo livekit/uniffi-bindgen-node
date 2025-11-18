@@ -139,10 +139,6 @@
       /*asyncOpts:*/ asyncOpts_
     );
 
-    {% for arg in func_def.arguments() -%}
-      {{ arg.name() | typescript_argument_var_name | typescript_ffi_converter_lower_with_cleanup(arg.as_type().borrow()) }}
-    {% endfor -%}
-
     return returnValue;
 
   {% else %}
@@ -179,10 +175,6 @@
           {%- endif %}
         ]);
         console.log("{{ func_def.ffi_func().name() }} return value:", returnValue{%- if func_def.ffi_func().has_rust_call_status_arg() -%}, 'Call status:', callStatus{%- endif -%});
-
-        {% for arg in func_def.arguments() -%}
-          {{ arg.name() | typescript_argument_var_name | typescript_ffi_converter_lower_with_cleanup(arg.as_type().borrow()) }}
-        {% endfor -%}
 
         return returnValue;
       },
@@ -563,10 +555,6 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
       },
       /*liftString:*/ FfiConverterString.lift
     );
-
-    {% for arg in constructor_fn.arguments() -%}
-      {{ arg.name() | typescript_argument_var_name | typescript_ffi_converter_lower_with_cleanup(arg.as_type().borrow()) }}
-    {% endfor -%}
 
     this[pointerLiteralSymbol] = pointer;
     this[destructorGuardSymbol] = {{ object_def.name() | typescript_ffi_object_factory_name }}.bless(pointer);
