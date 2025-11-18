@@ -184,6 +184,19 @@ function uniffiCheckCallStatus(
   }
 }
 
+export const uniffiCaller = new UniffiFfiRsRustCaller();
+
+export const stringConverter = (() => {
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  return {
+    stringToBytes: (s: string) => encoder.encode(s),
+    bytesToString: (ab: UniffiByteArray) => decoder.decode(ab),
+    stringByteLength: (s: string) => encoder.encode(s).byteLength,
+  };
+})();
+const FfiConverterString = uniffiCreateFfiConverterString(stringConverter);
+
 // Struct + Callback type definitions
 type UniffiRustBufferStruct = { capacity: bigint, len: bigint, data: JsExternal };
 const DataType_UniffiRustBufferStruct = {
