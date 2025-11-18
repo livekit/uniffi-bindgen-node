@@ -4,9 +4,7 @@ import {
   open,
   close,
   define,
-  load,
   arrayConstructor,
-  funcConstructor,
   restorePointer,
   wrapPointer,
   unwrapPointer,
@@ -14,46 +12,11 @@ import {
   freePointer,
   isNullPointer,
   PointerType,
-  FieldType,
 } from 'ffi-rs';
 import {
   type UniffiByteArray,
-  type UniffiDuration,
-  AbstractFfiConverterByteArray,
-  FfiConverterInt8,
-  FfiConverterInt16,
-  FfiConverterInt32,
-  FfiConverterInt64,
-  FfiConverterFloat32,
-  FfiConverterFloat64,
-  FfiConverterUInt8,
-  FfiConverterUInt16,
-  FfiConverterUInt32,
-  FfiConverterUInt64,
-  FfiConverterBool,
-  FfiConverterDuration,
-  UniffiTimestamp,
-  FfiConverterTimestamp,
-  FfiConverterOptional,
-  FfiConverterArray,
-  FfiConverterMap,
-  FfiConverterArrayBuffer,
-  FfiConverterObject,
-  RustBuffer,
-  UniffiError,
   UniffiInternalError,
-  UniffiRustCaller,
-  UniffiAbstractObject,
-  UniffiRustArcPtr,
-  UnsafeMutableRawPointer,
-  UniffiObjectFactory,
   uniffiCreateFfiConverterString,
-  uniffiCreateRecord,
-  uniffiRustCallAsync,
-  uniffiTypeNameSymbol,
-  variantOrdinalSymbol,
-  destructorGuardSymbol,
-  pointerLiteralSymbol,
 } from 'uniffi-bindgen-react-native';
 
 export const CALL_SUCCESS = 0, CALL_ERROR = 1, CALL_UNEXPECTED_ERROR = 2, CALL_CANCELLED = 3;
@@ -95,14 +58,14 @@ class UniffiFfiRsRustCaller {
       paramsType: [DataType_UniffiRustCallStatus],
       paramsValue: [{
         code: CALL_SUCCESS,
-        error_buf: { capacity: 0, len: 0, data: nullPointer } // TODO: is this the best way to pass a null pointer?
+        error_buf: { capacity: 0, len: 0, data: nullPointer },
       }],
     });
 
     return $callStatus as [JsExternal];
   }
 
-  createErrorStatus(code: number, errorBuf: UniffiByteArray): JsExternal {
+  createErrorStatus(_code: number, _errorBuf: UniffiByteArray): JsExternal {
     // FIXME: what is this supposed to do and how does it not allocate `errorBuf` when making the
     // call status struct?
     throw new Error('UniffiRustCaller.createErrorStatus is unimplemented.');
@@ -145,7 +108,7 @@ function uniffiCheckCallStatus(
       // - If unsuccesful, lift the error from the RustBuf and free.
       if (!isNullPointer(callStatus.error_buf.data)) {
         const struct = new UniffiRustBufferValue(callStatus.error_buf);
-        const errorBufBytes = struct.consumeIntoUint8Array(); // FIXME: ADD FREE HERE
+        const errorBufBytes = struct.consumeIntoUint8Array();
 
         if (listError) {
           throw listError(errorBufBytes);
@@ -161,7 +124,7 @@ function uniffiCheckCallStatus(
 
       if (!isNullPointer(callStatus.error_buf.data)) {
         const struct = new UniffiRustBufferValue(callStatus.error_buf);
-        const errorBufBytes = struct.consumeIntoUint8Array(); // FIXME: ADD FREE HERE
+        const errorBufBytes = struct.consumeIntoUint8Array();
 
         if (errorBufBytes.byteLength > 0) {
           const liftedErrorBuf = liftString(errorBufBytes);
@@ -226,7 +189,6 @@ export const DataType_UniffiForeignBytes = {
   *
   * `RustBufferValue`s are behind the scenes backed by manually managed memory on the rust end, and
   * must be explictly destroyed when no longer used to ensure no memory is leaked.
-  * TODO: set up finalizationregistry.
   * */
 export class UniffiRustBufferValue {
   private struct: UniffiRustBufferStruct | null;
