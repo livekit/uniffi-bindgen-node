@@ -62,21 +62,15 @@ impl BindingGenerator for NodeBindingGenerator {
             // }
 
             let Bindings {
+                livekit_sys_template_contents,
                 node_ts_file_contents,
             } = generate_node_bindings(&ci)?;
 
             let node_ts_file_path = settings.out_dir.join(format!("{}_node.ts", ci.namespace()));
             write_with_dirs(&node_ts_file_path, node_ts_file_contents)?;
 
-            // let scaffolding_header_path = settings
-            //     .out_dir
-            //     .join(format!("{}_scaffolding.hpp", ci.namespace()));
-            // let header_path = settings.out_dir.join(format!("{}.hpp", ci.namespace()));
-            // let source_path = settings.out_dir.join(format!("{}.cpp", ci.namespace()));
-
-            // fs::write(&scaffolding_header_path, scaffolding_header)?;
-            // fs::write(&header_path, header)?;
-            // fs::write(&source_path, source)?;
+            let livekit_sys_template_path = settings.out_dir.join(format!("{}-sys.ts", ci.namespace()));
+            write_with_dirs(&livekit_sys_template_path, livekit_sys_template_contents)?;
         }
 
         Ok(())
