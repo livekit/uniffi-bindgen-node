@@ -251,20 +251,13 @@ import {
 import {
   FFI_DYNAMIC_LIB,
 
-  CALL_SUCCESS,
-  CALL_ERROR,
-  CALL_UNEXPECTED_ERROR,
-  CALL_CANCELLED,
   uniffiCaller,
   FfiConverterString,
 
   type UniffiRustBufferStruct,
-  DataType_UniffiRustBufferStruct,
   type UniffiForeignBytes,
-  DataType_UniffiForeignBytes,
   UniffiRustBufferValue,
   type UniffiRustCallStatusStruct,
-  DataType_UniffiRustCallStatus,
 
   {%- for definition in ci.ffi_definitions() -%}
     {%- match definition %}
@@ -273,8 +266,7 @@ import {
       {%- if !loop.last %},{% endif %}
 
       {%- when FfiDefinition::Struct(struct_data) -%}
-      type {{ struct_data.name() | typescript_ffi_struct_name }},
-      DataType_{{ struct_data.name() | typescript_ffi_struct_name }}
+      type {{ struct_data.name() | typescript_ffi_struct_name }}
       {%- if !loop.last %},{% endif %}
       {%- else -%}
     {%- endmatch %}
