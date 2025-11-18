@@ -279,41 +279,6 @@ export class UniffiRustBufferValue {
   }
 }
 
-/** The UniffiRustBufferFacade is used to give a {@link UniffiRustBufferValue} a
-  * {@link UniffiRustBufferStruct} type interface so it can be passed into places where a
-  * {@link UniffiRustBufferStruct} is expected.
-  *
-  * It also provides a mechanism to free the underlying UniffiRustBufferValue, which calling
-  * rustBufferValue.toStruct() wouldn't provide. */
-export class UniffiRustBufferFacade implements UniffiRustBufferStruct {
-  private value: UniffiRustBufferValue;
-
-  constructor(
-    rustBuffer: UniffiRustBufferValue,
-  ) {
-    this.value = rustBuffer;
-  }
-
-  get len() {
-    return this.value.toStruct().len;
-  }
-  get capacity() {
-    return this.value.toStruct().capacity;
-  }
-  get data() {
-    return this.value.toStruct().data;
-  }
-
-  free() {
-    // if (!this.pointer) {
-    //   throw new Error('Error destroying UniffiRustBufferValue - already previously destroyed! Double freeing is not allowed.');
-    // }
-
-    // this.pointer.free();
-    this.value.destroy();
-  }
-}
-
 export type UniffiRustCallStatusStruct = { code: number, error_buf: UniffiRustBufferStruct };
 export const DataType_UniffiRustCallStatus = {
   code: DataType.U8,

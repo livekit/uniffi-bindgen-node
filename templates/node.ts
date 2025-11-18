@@ -263,7 +263,6 @@ import {
   type UniffiForeignBytes,
   DataType_UniffiForeignBytes,
   UniffiRustBufferValue,
-  UniffiRustBufferFacade,
   type UniffiRustCallStatusStruct,
   DataType_UniffiRustCallStatus,
 

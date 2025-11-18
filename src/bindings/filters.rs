@@ -136,10 +136,10 @@ pub fn typescript_ffi_converter_lift_with(target: String, askama_values: &dyn as
 pub fn typescript_ffi_converter_lower_with(target: String, askama_values: &dyn askama::Values, typ: &impl AsType) -> Result<String> {
     Ok(match typ.as_type() {
         Type::String | Type::Map { .. } | Type::Sequence { .. } | Type::Enum { .. } | Type::Record { .. } => {
-            format!("new UniffiRustBufferFacade(UniffiRustBufferValue.allocateWithBytes({}.lower({target})))", typescript_ffi_converter_name(typ, askama_values)?)
+            format!("UniffiRustBufferValue.allocateWithBytes({}.lower({target})).toStruct()", typescript_ffi_converter_name(typ, askama_values)?)
         },
         Type::Optional { inner_type } => {
-            format!("new UniffiRustBufferFacade(UniffiRustBufferValue.allocateWithBytes(new FfiConverterOptional({}).lower({target})))", typescript_ffi_converter_name(&inner_type, askama_values)?)
+            format!("UniffiRustBufferValue.allocateWithBytes(new FfiConverterOptional({}).lower({target})).toStruct()", typescript_ffi_converter_name(&inner_type, askama_values)?)
         },
         _ => format!("{}.lower({target})", typescript_ffi_converter_name(typ, askama_values)?),
     })
