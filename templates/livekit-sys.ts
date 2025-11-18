@@ -55,7 +55,7 @@ import {
   pointerLiteralSymbol,
 } from 'uniffi-bindgen-react-native';
 
-const CALL_SUCCESS = 0, CALL_ERROR = 1, CALL_UNEXPECTED_ERROR = 2, CALL_CANCELLED = 3;
+export const CALL_SUCCESS = 0, CALL_ERROR = 1, CALL_UNEXPECTED_ERROR = 2, CALL_CANCELLED = 3;
 
 
 // FIXME: un hard code path and make it platform specific
@@ -195,11 +195,11 @@ export const stringConverter = (() => {
     stringByteLength: (s: string) => encoder.encode(s).byteLength,
   };
 })();
-const FfiConverterString = uniffiCreateFfiConverterString(stringConverter);
+export const FfiConverterString = uniffiCreateFfiConverterString(stringConverter);
 
 // Struct + Callback type definitions
-type UniffiRustBufferStruct = { capacity: bigint, len: bigint, data: JsExternal };
-const DataType_UniffiRustBufferStruct = {
+export type UniffiRustBufferStruct = { capacity: bigint, len: bigint, data: JsExternal };
+export const DataType_UniffiRustBufferStruct = {
   capacity: DataType.U64,
   len: DataType.U64,
   data: DataType.External,
@@ -207,8 +207,8 @@ const DataType_UniffiRustBufferStruct = {
   ffiTypeTag: DataType.StackStruct,
 };
 
-type UniffiForeignBytes = { len: number, data: JsExternal };
-const DataType_UniffiForeignBytes = {
+export type UniffiForeignBytes = { len: number, data: JsExternal };
+export const DataType_UniffiForeignBytes = {
   len: DataType.I32,
   data: DataType.External,
 
@@ -225,7 +225,7 @@ const DataType_UniffiForeignBytes = {
   * must be explictly destroyed when no longer used to ensure no memory is leaked.
   * TODO: set up finalizationregistry.
   * */
-class UniffiRustBufferValue {
+export class UniffiRustBufferValue {
   private struct: UniffiRustBufferStruct | null;
 
   constructor(struct: UniffiRustBufferStruct) {
@@ -320,7 +320,7 @@ class UniffiRustBufferValue {
   *
   * It also provides a mechanism to free the underlying UniffiRustBufferValue, which calling
   * rustBufferValue.toStruct() wouldn't provide. */
-class UniffiRustBufferFacade implements UniffiRustBufferStruct {
+export class UniffiRustBufferFacade implements UniffiRustBufferStruct {
   private value: UniffiRustBufferValue;
 
   constructor(
@@ -349,8 +349,8 @@ class UniffiRustBufferFacade implements UniffiRustBufferStruct {
   }
 }
 
-type UniffiRustCallStatusStruct = { code: number, error_buf: UniffiRustBufferStruct };
-const DataType_UniffiRustCallStatus = {
+export type UniffiRustCallStatusStruct = { code: number, error_buf: UniffiRustBufferStruct };
+export const DataType_UniffiRustCallStatus = {
   code: DataType.U8,
   error_buf: DataType_UniffiRustBufferStruct,
 };
@@ -379,7 +379,7 @@ const DataType_UniffiRustCallStatus = {
       {%- endfor %}
     };
 
-    const DataType_{{ struct_data.name() | typescript_ffi_struct_name }} = {
+    export const DataType_{{ struct_data.name() | typescript_ffi_struct_name }} = {
       {% for field_def in struct_data.fields() -%}
           {{field_def.name() | typescript_var_name}}: {{field_def.type_().borrow() | typescript_ffi_datatype_name}},
       {% endfor %}
@@ -397,7 +397,7 @@ const DataType_UniffiRustCallStatus = {
 /** This direct / "extern C" type FFI interface is bound directly to the functions exposed by the
   * dynamic library. Using this manually from end-user javascript code is unsafe and this is not
   * recommended. */
-const FFI_DYNAMIC_LIB = define({
+export const FFI_DYNAMIC_LIB = define({
   {%- for definition in ci.ffi_definitions() %}
     {%- match definition %}
 
