@@ -799,7 +799,8 @@ class UniffiRustBufferValue {
     const rustBuffer = uniffiCaller.rustCall(
       (callStatus) => {
         return FFI_DYNAMIC_LIB.ffi_livekit_uniffi_rustbuffer_from_bytes([
-          { data: dataPointer, len: bytes.byteLength },
+          // TODO: figure out why this is necessary.
+          { data: unwrapPointer([dataPointer])[0], len: bytes.byteLength },
           callStatus,
         ]);
       },
@@ -812,11 +813,7 @@ class UniffiRustBufferValue {
       pointerType: PointerType.RsPointer
     });
 
-    return new UniffiRustBufferValue({
-      ...rustBuffer,
-      data: unwrapPointer([rustBuffer.data])[0]
-      // TODO: figure out why this is necessary.
-    });
+    return new UniffiRustBufferValue(rustBuffer);
   }
 
   static allocateEmpty() {
