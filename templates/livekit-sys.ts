@@ -1,7 +1,8 @@
 import {
   DataType,
   JsExternal,
-  open, /* close, */
+  open,
+  close,
   define,
   load,
   arrayConstructor,
@@ -60,10 +61,12 @@ export const CALL_SUCCESS = 0, CALL_ERROR = 1, CALL_UNEXPECTED_ERROR = 2, CALL_C
 
 // FIXME: un hard code path and make it platform specific
 open({ library: 'lib{{ ci.crate_name() }}', path: "/Users/ryan/w/livekit/rust-sdks/target/release/liblivekit_uniffi.dylib" })
-// Release library memory when you're not using it.
-// close('liblivekit_uniffi')
 
-
+// Release library memory before process terminates
+// TODO: is this even really required?
+process.on('beforeExit', () => {
+  close('lib{{ ci.crate_name() }}');
+});
 
 
 const [nullPointer] = unwrapPointer(createPointer({
