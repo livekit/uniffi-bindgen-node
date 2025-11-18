@@ -253,9 +253,7 @@ import {
 } from 'ffi-rs';
 
 
-import {
-  FFI_DYNAMIC_LIB,
-
+import FFI_DYNAMIC_LIB, {
   uniffiCaller,
   FfiConverterString,
 

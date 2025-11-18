@@ -327,7 +327,7 @@ const DataType_UniffiRustCallStatus = {
 /** This direct / "extern C" type FFI interface is bound directly to the functions exposed by the
   * dynamic library. Using this manually from end-user javascript code is unsafe and this is not
   * recommended. */
-export const FFI_DYNAMIC_LIB = define({
+const FFI_DYNAMIC_LIB = define({
   {%- for definition in ci.ffi_definitions() %}
     {%- match definition %}
 
@@ -413,3 +413,5 @@ export const FFI_DYNAMIC_LIB = define({
 
   {%- endfor %}
 };
+
+export default FFI_DYNAMIC_LIB;
