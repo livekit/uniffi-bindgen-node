@@ -19,7 +19,7 @@ import {
   uniffiCreateFfiConverterString,
 } from 'uniffi-bindgen-react-native';
 
-export const CALL_SUCCESS = 0, CALL_ERROR = 1, CALL_UNEXPECTED_ERROR = 2, CALL_CANCELLED = 3;
+const CALL_SUCCESS = 0, CALL_ERROR = 1, CALL_UNEXPECTED_ERROR = 2, CALL_CANCELLED = 3;
 
 
 // FIXME: un hard code path and make it platform specific
@@ -165,7 +165,7 @@ export const FfiConverterString = uniffiCreateFfiConverterString(stringConverter
 
 // Struct + Callback type definitions
 export type UniffiRustBufferStruct = { capacity: bigint, len: bigint, data: JsExternal };
-export const DataType_UniffiRustBufferStruct = {
+const DataType_UniffiRustBufferStruct = {
   capacity: DataType.U64,
   len: DataType.U64,
   data: DataType.External,
@@ -174,7 +174,7 @@ export const DataType_UniffiRustBufferStruct = {
 };
 
 export type UniffiForeignBytes = { len: number, data: JsExternal };
-export const DataType_UniffiForeignBytes = {
+const DataType_UniffiForeignBytes = {
   len: DataType.I32,
   data: DataType.External,
 
@@ -280,7 +280,7 @@ export class UniffiRustBufferValue {
 }
 
 export type UniffiRustCallStatusStruct = { code: number, error_buf: UniffiRustBufferStruct };
-export const DataType_UniffiRustCallStatus = {
+const DataType_UniffiRustCallStatus = {
   code: DataType.U8,
   error_buf: DataType_UniffiRustBufferStruct,
 };
@@ -309,7 +309,7 @@ export const DataType_UniffiRustCallStatus = {
       {%- endfor %}
     };
 
-    export const DataType_{{ struct_data.name() | typescript_ffi_struct_name }} = {
+    const DataType_{{ struct_data.name() | typescript_ffi_struct_name }} = {
       {% for field_def in struct_data.fields() -%}
           {{field_def.name() | typescript_var_name}}: {{field_def.type_().borrow() | typescript_ffi_datatype_name}},
       {% endfor %}
