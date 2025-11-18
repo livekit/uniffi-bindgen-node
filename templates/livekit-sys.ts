@@ -240,7 +240,7 @@ class UniffiRustBufferValue {
 
     const rustBuffer = uniffiCaller.rustCall(
       (callStatus) => {
-        return FFI_DYNAMIC_LIB.ffi_livekit_uniffi_rustbuffer_from_bytes([
+        return FFI_DYNAMIC_LIB.{{ci.ffi_rustbuffer_from_bytes().name()}}([
           // TODO: figure out why this is necessary.
           { data: unwrapPointer([dataPointer])[0], len: bytes.byteLength },
           callStatus,
@@ -299,7 +299,7 @@ class UniffiRustBufferValue {
 
     uniffiCaller.rustCall(
       (callStatus) => {
-        FFI_DYNAMIC_LIB.ffi_livekit_uniffi_rustbuffer_free([this.struct, callStatus]);
+        FFI_DYNAMIC_LIB.{{ci.ffi_rustbuffer_free().name()}}([this.struct!, callStatus]);
       },
       /*liftString:*/ {{ &Type::String | typescript_ffi_converter_name }}.lift,
     );
@@ -398,169 +398,88 @@ const DataType_UniffiRustCallStatus = {
   * dynamic library. Using this manually from end-user javascript code is unsafe and this is not
   * recommended. */
 const FFI_DYNAMIC_LIB = define({
-    ffi_livekit_uniffi_rustbuffer_alloc: {
-      library: "lib{{ ci.crate_name() }}",
-      paramsType: [DataType.U64, DataType.External],
-      retType: DataType_UniffiRustBufferStruct,
-    },
-    // ffi_livekit_uniffi_rustbuffer_from_bytes: {
-    //   library: "lib{{ ci.crate_name() }}",
-    //   paramsType: [DataType_UniffiForeignBytes, DataType.External],
-    //   retType: DataType_UniffiRustBufferStruct,
-    // },
-    ffi_livekit_uniffi_rustbuffer_free: {
-      library: "lib{{ ci.crate_name() }}",
-      paramsType: [DataType_UniffiRustBufferStruct, DataType.External],
-      retType: DataType.Void,
-    },
-
-    print_rust_buffer: {
-      library: "lib{{ ci.crate_name() }}",
-      paramsType: [DataType_UniffiRustBufferStruct],
-      retType: DataType.Void,
-    },
-
-
-    uniffi_destroy_rust_buffer: {
-      library: "lib{{ ci.crate_name() }}",
-      retType: DataType.Void,
-      paramsType: [DataType_UniffiRustBufferStruct],
-    },
-
-
-
-
-    // uniffi_free_rust_buffer: {
-    //   library: "lib{{ ci.crate_name() }}",
-    //   retType: DataType.Void,
-    //   paramsType: [DataType.External],
-    // },
-
-
-    uniffi_get_call_status_pointer: {
-      library: "lib{{ ci.crate_name() }}",
-      retType: DataType.External,
-      paramsType: [],
-    },
-    uniffi_get_call_status_code: {
-      library: "lib{{ ci.crate_name() }}",
-      retType: DataType.U8,
-      paramsType: [],
-    },
-    uniffi_get_call_status_error_buf_byte_len: {
-      library: "lib{{ ci.crate_name() }}",
-      retType: DataType.U8,
-      paramsType: [],
-    },
-    // uniffi_get_call_status_error_buf: {
-    //   library: "lib{{ ci.crate_name() }}",
-    //   retType: DataType.U64,
-    //   paramsType: [],
-    // },
-    uniffi_get_call_status_error_buf: {
-      library: "lib{{ ci.crate_name() }}",
-      retType: DataType_UniffiRustBufferStruct,
-      paramsType: [],
-    },
-
-
-    {%- for definition in ci.ffi_definitions() %}
-        {%- match definition %}
-
-        {%- when FfiDefinition::CallbackFunction(callback) %}
-        {{ callback.name() }}: {
-          library: "lib{{ ci.crate_name() }}",
-          retType: {%- match callback.return_type() %}
-          {%-   when Some(return_type) %}
-            {{- return_type | typescript_ffi_datatype_name -}}
-          {%-   when None %}
-            DataType.Void
-          {%- endmatch %},
-          paramsType: [
-            {%- for arg in callback.arguments() %}
-              {{ arg.type_().borrow() | typescript_ffi_datatype_name }}{% if !loop.last %}, {% endif %}
-            {%- endfor %}
-            {%-   if callback.has_rust_call_status_arg() -%}
-            {%      if callback.arguments().len() > 0 %}, {% endif %}{{ &FfiType::RustCallStatus | typescript_ffi_datatype_name }}
-            {%-   endif %}
-          ],
-        },
-
-        {%- when FfiDefinition::Function(func) %}
-        {{ func.name() }}: {
-          library: "lib{{ ci.crate_name() }}",
-          retType: {%- match func.return_type() %}
-          {%-   when Some(return_type) %}
-            {{- return_type | typescript_ffi_datatype_name -}}
-          {%-   when None %}
-            DataType.Void
-          {%- endmatch %},
-          paramsType: [
-            {%- for arg in func.arguments() %}
-              {{ arg.type_().borrow() | typescript_ffi_datatype_name }}{% if !loop.last %}, {% endif %}
-            {%- endfor %}
-            {%-   if func.has_rust_call_status_arg() -%}
-            {%      if func.arguments().len() > 0 %}, {% endif -%}
-            {{ &FfiType::RustCallStatus | typescript_ffi_datatype_name }}
-            {%-   endif %}
-          ],
-        },
-
-        {%- else %}
-        {%- endmatch %}
-
-    {%- endfor %}
-}) as {
-  ffi_livekit_uniffi_rustbuffer_alloc: (args: [bigint, JsExternal]) => UniffiRustBufferStruct,
-  // ffi_livekit_uniffi_rustbuffer_from_bytes: (args: [UniffiForeignBytes, JsExternal]) => UniffiRustBufferStruct,
-  ffi_livekit_uniffi_rustbuffer_free: (args: [UniffiRustBufferStruct, JsExternal]) => void,
-  print_rust_buffer: (args: [UniffiRustBufferStruct]) => void,
-
-  uniffi_destroy_rust_buffer: (args: [UniffiRustBufferStruct]) => void,
-
-  // uniffi_free_rust_buffer: (args: [JsExternal]) => void,
-  uniffi_get_call_status_size: (args: []) => number,
-  uniffi_get_call_status_pointer: (args: []) => JsExternal,
-  uniffi_get_call_status_code: (args: []) => number,
-  uniffi_get_call_status_error_buf_byte_len: (args: []) => number,
-  // uniffi_get_call_status_error_buf: (args: []) => JsExternal,
-  uniffi_get_call_status_error_buf: (args: []) => UniffiRustBufferStruct,
-
   {%- for definition in ci.ffi_definitions() %}
-      {%- match definition %}
+    {%- match definition %}
 
-      {%- when FfiDefinition::CallbackFunction(callback) %}
-      {{ callback.name() }}: (args: [
+    {%- when FfiDefinition::CallbackFunction(callback) %}
+    {{ callback.name() }}: {
+      library: "lib{{ ci.crate_name() }}",
+      retType: {%- match callback.return_type() %}
+      {%-   when Some(return_type) %}
+        {{- return_type | typescript_ffi_datatype_name -}}
+      {%-   when None %}
+        DataType.Void
+      {%- endmatch %},
+      paramsType: [
         {%- for arg in callback.arguments() %}
-          /* {{ arg.name() }} */ {{ arg.type_().borrow() | typescript_ffi_type_name }}{% if !loop.last %}, {% endif %}
+          {{ arg.type_().borrow() | typescript_ffi_datatype_name }}{% if !loop.last %}, {% endif %}
         {%- endfor %}
         {%-   if callback.has_rust_call_status_arg() -%}
-        {%      if callback.arguments().len() > 0 %}, {% endif %} RustCallStatus
+        {%      if callback.arguments().len() > 0 %}, {% endif %}{{ &FfiType::RustCallStatus | typescript_ffi_datatype_name }}
         {%-   endif %}
-      ]) => {%- match callback.return_type() %}
-      {%-   when Some(return_type) %}
-        {{- return_type | typescript_ffi_type_name -}}
-      {%-   when None %}
-        void
-      {%- endmatch %},
+      ],
+    },
 
-      {%- when FfiDefinition::Function(func) %}
-      {{ func.name() }}: (args: [
+    {%- when FfiDefinition::Function(func) %}
+    {{ func.name() }}: {
+      library: "lib{{ ci.crate_name() }}",
+      retType: {%- match func.return_type() %}
+      {%-   when Some(return_type) %}
+        {{- return_type | typescript_ffi_datatype_name -}}
+      {%-   when None %}
+        DataType.Void
+      {%- endmatch %},
+      paramsType: [
         {%- for arg in func.arguments() %}
-          /* {{ arg.name() }} */ {{ arg.type_().borrow() | typescript_ffi_type_name }}{% if !loop.last %}, {% endif %}
+          {{ arg.type_().borrow() | typescript_ffi_datatype_name }}{% if !loop.last %}, {% endif %}
         {%- endfor %}
         {%-   if func.has_rust_call_status_arg() -%}
-        {%      if func.arguments().len() > 0 %}, {% endif %}{{ &FfiType::RustCallStatus | typescript_ffi_type_name }}
+        {%      if func.arguments().len() > 0 %}, {% endif -%}
+        {{ &FfiType::RustCallStatus | typescript_ffi_datatype_name }}
         {%-   endif %}
-      ]) => {%- match func.return_type() %}
-      {%-   when Some(return_type) %}
-        {{- return_type | typescript_ffi_type_name -}}
-      {%-   when None %}
-        void
-      {%- endmatch %},
+      ],
+    },
 
-      {%- else %}
-      {%- endmatch %}
+    {%- else %}
+    {%- endmatch %}
+
+  {%- endfor %}
+}) as {
+  {%- for definition in ci.ffi_definitions() %}
+    {%- match definition %}
+
+    {%- when FfiDefinition::CallbackFunction(callback) %}
+    {{ callback.name() }}: (args: [
+      {%- for arg in callback.arguments() %}
+        /* {{ arg.name() }} */ {{ arg.type_().borrow() | typescript_ffi_type_name }}{% if !loop.last %}, {% endif %}
+      {%- endfor %}
+      {%-   if callback.has_rust_call_status_arg() -%}
+      {%      if callback.arguments().len() > 0 %}, {% endif %} RustCallStatus
+      {%-   endif %}
+    ]) => {%- match callback.return_type() %}
+    {%-   when Some(return_type) %}
+      {{- return_type | typescript_ffi_type_name -}}
+    {%-   when None %}
+      void
+    {%- endmatch %},
+
+    {%- when FfiDefinition::Function(func) %}
+    {{ func.name() }}: (args: [
+      {%- for arg in func.arguments() %}
+        /* {{ arg.name() }} */ {{ arg.type_().borrow() | typescript_ffi_type_name }}{% if !loop.last %}, {% endif %}
+      {%- endfor %}
+      {%-   if func.has_rust_call_status_arg() -%}
+      {%      if func.arguments().len() > 0 %}, {% endif %}{{ &FfiType::RustCallStatus | typescript_ffi_type_name }}
+      {%-   endif %}
+    ]) => {%- match func.return_type() %}
+    {%-   when Some(return_type) %}
+      {{- return_type | typescript_ffi_type_name -}}
+    {%-   when None %}
+      void
+    {%- endmatch %},
+
+    {%- else %}
+    {%- endmatch %}
 
   {%- endfor %}
 };
