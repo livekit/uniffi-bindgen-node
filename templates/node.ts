@@ -855,12 +855,12 @@ class UniffiRustBufferValue {
       throw new Error('Error destroying UniffiRustBufferValue - already previously destroyed! Double freeing is not allowed.');
     }
 
-    // uniffiCaller.rustCall(
-    //   (callStatus) => {
-    //     FFI_DYNAMIC_LIB.ffi_livekit_uniffi_rustbuffer_free([this.struct, callStatus]);
-    //   },
-    //   /*liftString:*/ {{ &Type::String | typescript_ffi_converter_name }}.lift,
-    // );
+    uniffiCaller.rustCall(
+      (callStatus) => {
+        FFI_DYNAMIC_LIB.ffi_livekit_uniffi_rustbuffer_free([this.struct, callStatus]);
+      },
+      /*liftString:*/ {{ &Type::String | typescript_ffi_converter_name }}.lift,
+    );
     // freePointer({
     //   paramsType: [arrayConstructor({ type: DataType.U8Array, length: this.struct.len })],
     //   paramsValue: wrapPointer([this.struct.data]),

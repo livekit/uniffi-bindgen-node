@@ -276,12 +276,12 @@ pub fn typescript_ffi_converter_lower_with(target: String, askama_values: &dyn a
 pub fn typescript_ffi_converter_lower_with_cleanup(target: String, _: &dyn askama::Values, typ: &impl AsType) -> Result<String> {
     Ok(match typ.as_type() {
         Type::String | Type::Map { .. } | Type::Sequence { .. } | Type::Enum { .. } | Type::Record { .. } => {
-            format!("{target}.free();")
+            format!("/* {target}.free(); */")
         },
         // Type::Object { name, imp, .. } => typescript_class_name(&imp.rust_name_for(&name), askama_values)?,
         // Type::CallbackInterface { name, .. } => name.to_lower_camel_case(),
         Type::Optional { .. } => {
-            format!("{target}.free();")
+            format!("/* {target}.free(); */")
         },
         _ => "".into(),
     })
