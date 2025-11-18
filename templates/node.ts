@@ -1,5 +1,3 @@
-{%- import "macros.rs" as macros -%}
-
 {% macro docstring(optional_docstring) %}
     {%- if let Some(docstring) = optional_docstring -%}
 /**
