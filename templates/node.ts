@@ -58,7 +58,11 @@
     {% endfor -%}
 
     const returnValue = await uniffiRustCallAsync(
-      /*rustCaller:*/ uniffiCaller,
+      // NOTE: this type assertion is being done to silence the fact that a completely custom (ie,
+      // not just a superclass) `UniffiRustCaller` implementer is being used here, which is
+      // required so that custom `free`ing logic can be run that the stock UniffiRustCaller
+      // doesn't support.
+      /*rustCaller:*/ uniffiCaller as unknown as UniffiRustCaller<UniffiRustCallStatus>,
       /*rustFutureFunc:*/ () => {
         console.log("{{ func_def.ffi_func().name() }} async call starting...");
         const returnedHandle = FFI_DYNAMIC_LIB.{{ func_def.ffi_func().name() }}([
@@ -215,7 +219,8 @@ import {
   RustBuffer,
   UniffiError,
   UniffiInternalError,
-  UniffiRustCaller,
+  type UniffiRustCaller,
+  type UniffiRustCallStatus,
   UniffiAbstractObject,
   UniffiRustArcPtr,
   UnsafeMutableRawPointer,
