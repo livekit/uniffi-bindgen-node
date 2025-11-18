@@ -1,4 +1,3 @@
-use std::fs;
 use uniffi_bindgen::{BindingGenerator, GenerationSettings};
 use anyhow::Result;
 use serde::Deserialize;
@@ -45,22 +44,6 @@ impl BindingGenerator for NodeBindingGenerator {
         components: &[uniffi_bindgen::Component<Self::Config>],
     ) -> Result<()> {
         for uniffi_bindgen::Component { ci, config: _, .. } in components {
-            println!("Component interface: {ci:#?}");
-            // ci.object_definitions()[0].
-
-            // let a = ci.enum_definitions()[0].variants().iter().any(|v| !v.fields().is_empty());
-
-            // for func_def in ci.function_definitions() {
-            //     println!("FN DEF: {func_def:#?}");
-            //     // func_def.ffi_func
-            //     // func_def.docstring().unwrap().split
-            //     // func_def.return_type
-            // }
-
-            // if ci.has_async_fns() || ci.has_async_callback_interface_definition() {
-            //     unimplemented!("Cpp bindgen does not support async functions!");
-            // }
-
             let Bindings {
                 livekit_sys_template_contents,
                 node_ts_file_contents,
