@@ -50,7 +50,6 @@ pub fn typescript_ffi_type_name(ffi_type: &FfiType, askama_values: &dyn askama::
         FfiType::UInt64 => "bigint".into(),
         FfiType::Float32 => "number".into(),
         FfiType::Float64 => "number".into(), // FIXME: is this right for f64? I am not sure `number` is big enough?
-        // FfiType::RustArcPtr(_) => "void *".into(),
         FfiType::RustBuffer(_) => "/* RustBuffer */ UniffiRustBufferStruct".into(),
         FfiType::ForeignBytes => "UniffiForeignBytes".into(),
         FfiType::Callback(name) => format!("/* callback {} */ JsExternal", typescript_callback_name(name, askama_values)?),
@@ -75,7 +74,6 @@ pub fn typescript_ffi_datatype_name(ffi_type: &FfiType, askama_values: &dyn aska
         FfiType::UInt64 => "DataType.U64".into(),
         FfiType::Float32 => "/* f32 */ DataType.Float".into(),
         FfiType::Float64 => "/* f64 */ DataType.Double".into(), // FIXME: is this right for f64? I am not sure `number` is big enough?
-        // FfiType::RustArcPtr(_) => "void *".into(),
         FfiType::RustBuffer(_) => "DataType_UniffiRustBufferStruct".into(),
         FfiType::ForeignBytes => "DataType_UniffiForeignBytes".into(),
         FfiType::Callback(_name) => "/* callback */ DataType.External".into(),
@@ -128,8 +126,6 @@ pub fn typescript_ffi_converter_lift_with(target: String, askama_values: &dyn as
         Type::String | Type::Map { .. } | Type::Sequence { .. } | Type::Enum { .. } | Type::Record { .. } => {
             format!("{}.lift(new UniffiRustBufferValue({target}).consumeIntoUint8Array())", typescript_ffi_converter_name(typ, askama_values)?)
         },
-        // Type::Object { name, imp, .. } => typescript_class_name(&imp.rust_name_for(&name), askama_values)?,
-        // Type::CallbackInterface { name, .. } => name.to_lower_camel_case(),
         Type::Optional { inner_type } => {
             format!("new FfiConverterOptional({}).lift(new UniffiRustBufferValue({target}).consumeIntoUint8Array())", typescript_ffi_converter_name(&inner_type, askama_values)?)
         },
@@ -140,13 +136,9 @@ pub fn typescript_ffi_converter_lift_with(target: String, askama_values: &dyn as
 pub fn typescript_ffi_converter_lower_with(target: String, askama_values: &dyn askama::Values, typ: &impl AsType) -> Result<String> {
     Ok(match typ.as_type() {
         Type::String | Type::Map { .. } | Type::Sequence { .. } | Type::Enum { .. } | Type::Record { .. } => {
-            // format!("UniffiRustBufferPointer.allocateWithBytes({}.lower({target}))", typescript_ffi_converter_name(typ, askama_values)?)
             format!("new UniffiRustBufferFacade(UniffiRustBufferValue.allocateWithBytes({}.lower({target})))", typescript_ffi_converter_name(typ, askama_values)?)
         },
-        // Type::Object { name, imp, .. } => typescript_class_name(&imp.rust_name_for(&name), askama_values)?,
-        // Type::CallbackInterface { name, .. } => name.to_lower_camel_case(),
         Type::Optional { inner_type } => {
-            // format!("UniffiRustBufferPointer.allocateWithBytes(new FfiConverterOptional({}).lower({target}))", typescript_ffi_converter_name(&inner_type, askama_values)?)
             format!("new UniffiRustBufferFacade(UniffiRustBufferValue.allocateWithBytes(new FfiConverterOptional({}).lower({target})))", typescript_ffi_converter_name(&inner_type, askama_values)?)
         },
         _ => format!("{}.lower({target})", typescript_ffi_converter_name(typ, askama_values)?),
