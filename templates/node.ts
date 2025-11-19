@@ -344,14 +344,14 @@ const {{ record_def.name() | typescript_ffi_converter_struct_enum_object_name }}
 {% for object_def in ci.object_definitions() %}
 export type {{ object_def.name() | typescript_protocol_name }} = {
   {% for method_def in object_def.methods() %}
-    {%- call docstring(method_def.docstring()) -%}
+    {%- call ts::docstring(method_def, 0) -%}
     {%- if method_def.is_async() -%}/* async */ {% endif -%}{{ method_def.name() | typescript_var_name }}(
-      {%- call function_arg_list(method_def) -%}
+      {%- call ts::param_list(method_def) -%}
     ){% call function_return_type_or_void(method_def) %};
   {% endfor %}
 };
 
-{% call docstring(object_def.docstring()) %}
+{% call ts::docstring(object_def, 0) %}
 export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstractObject implements {{ object_def.name() | typescript_protocol_name }} {
   readonly [uniffiTypeNameSymbol] = '{{ object_def.name() }}';
   readonly [destructorGuardSymbol]: UniffiRustArcPtr;
@@ -359,9 +359,9 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
 
   // Constructors:
   {% for constructor_fn in object_def.constructors() -%}
-  {% call docstring(constructor_fn.docstring()) %}
+  {% call ts::docstring(constructor_fn, 0) %}
   {% if constructor_fn.is_primary_constructor() -%}
-  constructor({%- call function_arg_list(constructor_fn) -%}) {
+  constructor({%- call ts::param_list(constructor_fn) -%}) {
     super();
 
     {% for arg in constructor_fn.arguments() -%}
@@ -390,7 +390,7 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
   }
   {%- else %}
     static {{ constructor_fn.name() | typescript_var_name }}(
-      {%- call function_arg_list(constructor_fn) -%}
+      {%- call ts::param_list(constructor_fn) -%}
     ){% call function_return_type_or_void(constructor_fn) %} {
       {%- call function_call_body(constructor_fn) -%}
     }
@@ -399,9 +399,9 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
 
   // Methods:
   {% for method_def in object_def.methods() %}
-    {% call docstring(method_def.docstring()) %}
+    {% call ts::docstring(method_def, 0) %}
     {%- if method_def.is_async() -%}async {% endif -%}{{ method_def.name() | typescript_var_name }}(
-      {%- call function_arg_list(method_def) -%}
+      {%- call ts::param_list(method_def) -%}
     ){% call function_return_type_or_void(method_def) %} {
       {%- call function_call_body(method_def, object_def.name()) -%}
     }

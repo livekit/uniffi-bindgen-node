@@ -31,7 +31,7 @@ export type {{ enum_def.name() | typescript_class_name }} =
     {%- endfor %}
 
 
-export const {{ enum_def.name() | typescript_ffi_converter_struct_enum_name }} = (() => {
+export const {{ enum_def.name() | typescript_ffi_converter_struct_enum_object_name }} = (() => {
     {%- let converter = "FfiConverterInt32" %}
     {%- let type_name = enum_def.name() | typescript_class_name %}
     class FFIConverter extends AbstractFfiConverterByteArray<{{ type_name }}> {
