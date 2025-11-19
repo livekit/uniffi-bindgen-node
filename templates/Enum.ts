@@ -30,12 +30,12 @@ export type {{ enum_def.name() | typescript_class_name }} =
     {%- endif -%}
     {%- endfor %}
 
-
 export const {{ enum_def.name() | typescript_ffi_converter_struct_enum_object_name }} = (() => {
     const ordinalConverter = FfiConverterInt32;
     {%- let type_name = enum_def.name() | typescript_class_name %}
     class FFIConverter extends AbstractFfiConverterByteArray<{{ type_name }}> {
         read(from: RustBuffer): {{ type_name }} {
+            {% if enum_def.is_flat() -%}
             switch (ordinalConverter.read(from)) {
                 {%- for variant in enum_def.variants() %}
                 {%- let variant_name = variant.name() | typescript_var_name %}
@@ -43,8 +43,13 @@ export const {{ enum_def.name() | typescript_ffi_converter_struct_enum_object_na
                 {%- endfor %}
                 default: throw new UniffiInternalError.UnexpectedEnumCase();
             }
+            {%- else -%}
+            // TODO: Handle associated values
+            throw new UniffiInternalError.Unimplemented();
+            {%- endif %}
         }
         write(value: {{ type_name }}, into: RustBuffer): void {
+            {% if enum_def.is_flat() -%}
             switch (value) {
                 {%- for variant in enum_def.variants() %}
                 {%- let variant_name = variant.name() | typescript_var_name %}
@@ -52,9 +57,18 @@ export const {{ enum_def.name() | typescript_ffi_converter_struct_enum_object_na
                 {%- endfor %}
                 default: throw new UniffiInternalError.UnexpectedEnumCase();
             }
+            {%- else -%}
+            // TODO: Handle associated values
+            throw new UniffiInternalError.Unimplemented();
+            {%- endif %}
         }
         allocationSize(value: {{ type_name }}): number {
+            {% if enum_def.is_flat() -%}
             return ordinalConverter.allocationSize(0);
+            {%- else -%}
+            // TODO: Handle associated values
+            throw new UniffiInternalError.Unimplemented();
+            {%- endif %}
         }
     }
     return new FFIConverter();
