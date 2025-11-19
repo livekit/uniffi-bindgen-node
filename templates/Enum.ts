@@ -22,8 +22,8 @@ export type {{ enum_def.name() | typescript_class_name }} =
     | "{{ variant_name }}"
     {%- else -%}
     | {
-        tag: "{{ variant_name }}",
-        {%- if !variant.fields().is_empty() %}
+        tag: "{{ variant_name }}"
+        {%- if !variant.fields().is_empty() %},
         inner: {% call variant_inner_fields(variant) %}
         {%- endif %}
     }
@@ -49,7 +49,8 @@ export const {{ enum_def.name() | typescript_ffi_converter_struct_enum_object_na
                 {%- let variant_name = variant.name() | typescript_var_name %}
                 case {{ loop.index0 + 1 }}:
                     return {
-                        tag: "{{ variant_name }}",
+                        tag: "{{ variant_name }}"
+                        {%- if !variant.fields().is_empty() %},
                         inner: {% if !variant.has_nameless_fields() -%} {
                             {%- for field in variant.fields() %}
                             {{ field.name() | typescript_var_name }}: {{ field.as_type().borrow() | typescript_ffi_converter_name }}.read(from)
@@ -62,6 +63,7 @@ export const {{ enum_def.name() | typescript_ffi_converter_struct_enum_object_na
                             {%- if !loop.last %}, {% endif -%}
                             {%- endfor %}
                         ]
+                        {%- endif %}
                         {%- endif %}
                     };
                 {%- endfor %}
