@@ -1,55 +1,61 @@
+{# TODO: doc comments for variant fields #}
+{%- macro variant_inner_fields(variant) %}Readonly<
+{%-   if !variant.has_nameless_fields() %}{
+{%-     for field in variant.fields() %}
+{{-       field.name() | typescript_var_name }}: {{ field | typescript_type_name }}
+{%-       if !loop.last %}; {% endif -%}
+{%-     endfor %}}
+{%-   else %}[
+{%-     for field in variant.fields() %}
+{{-       field | typescript_type_name }}
+{%-       if !loop.last %}, {% endif -%}
+{%-     endfor %}]
+{%-   endif %}>
+{%- endmacro %}
+
 {%- call ts::docstring(enum_def, 0) %}
 export type {{ enum_def.name() | typescript_class_name }} =
     {%- for variant in enum_def.variants() %}
+    {%- let variant_name = variant.name() | typescript_var_name %}
     {%- call ts::docstring(variant, 4) %}
-    {% if !variant.fields().is_empty() -%}
+    {% if enum_def.is_flat() -%}
+    | "{{ variant_name }}"
+    {%- else -%}
     | {
-    variant: "{{variant.name() | typescript_var_name }}",
-    values: {
-        {%- for (field_index, field_def) in variant.fields().iter().enumerate() -%}
-
-        {%- call ts::docstring(field_def, 8) %}
-        {%- if field_def.name().is_empty() -%}
-          {{ field_index }}: {{ field_def | typescript_type_name }}
-        {%- else -%}
-          {{ field_def.name() | typescript_var_name }}: {{ field_def | typescript_type_name }}
-        {%- endif -%}
-
-        {%- if !loop.last %}, {% endif -%}
-        {%- endfor %}
+        type: "{{ variant_name }}",
+        {%- if !variant.fields().is_empty() %}
+        inner: {% call variant_inner_fields(variant) %}
+        {%- endif %}
     }
-    }
-    {% else %}
-    | "{{variant.name() | typescript_var_name -}}"
-    {%- endif %}
+    {%- endif -%}
     {%- endfor %}
 
+
 export const {{ enum_def.name() | typescript_ffi_converter_struct_enum_name }} = (() => {
-  const ordinalConverter = FfiConverterInt32;
-  type TypeName = {{ enum_def.name() | typescript_class_name }};
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    read(from: RustBuffer): TypeName {
-      // FIXME: this does not handle enum variants with associated fields right now!
-      switch (ordinalConverter.read(from)) {
-        {% for (index, variant) in enum_def.variants().iter().enumerate() -%}
-        case {{ index }}:
-          return "{{ variant.name() | typescript_var_name }}";
-        {% endfor -%}
-        default:
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
+    {%- let converter = "FfiConverterInt32" %}
+    {%- let type_name = enum_def.name() | typescript_class_name %}
+    class FFIConverter extends AbstractFfiConverterByteArray<{{ type_name }}> {
+        read(from: RustBuffer): {{ type_name }} {
+            switch ({{ converter }}.read(from)) {
+                {%- for variant in enum_def.variants() %}
+                {%- let variant_name = variant.name() | typescript_var_name %}
+                case {{ loop.index0 + 1 }}: return "{{ variant_name }}";
+                {%- endfor %}
+                default: throw new UniffiInternalError.UnexpectedEnumCase();
+            }
+        }
+        write(value: {{ type_name }}, into: RustBuffer): void {
+            switch (value) {
+                {%- for variant in enum_def.variants() %}
+                {%- let variant_name = variant.name() | typescript_var_name %}
+                case "{{ variant_name }}": {{ converter }}.write({{ loop.index0 + 1 }}, into);
+                {%- endfor %}
+                default: throw new UniffiInternalError.UnexpectedEnumCase();
+            }
+        }
+        allocationSize(value: {{ type_name }}): number {
+            return {{ converter }}.allocationSize(0);
+        }
     }
-    write(value: TypeName, into: RustBuffer): void {
-      switch (value) {
-        {% for (index, variant) in enum_def.variants().iter().enumerate() -%}
-        case "{{ variant.name() | typescript_var_name }}":
-          return ordinalConverter.write({{ index }}, into);
-        {% endfor -%}
-      }
-    }
-    allocationSize(value: TypeName): number {
-      return ordinalConverter.allocationSize(0);
-    }
-  }
-  return new FFIConverter();
+    return new FFIConverter();
 })();
