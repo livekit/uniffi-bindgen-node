@@ -2,12 +2,30 @@ use std::borrow::Borrow;
 use uniffi_bindgen::{ComponentInterface, interface::{AsType, FfiDefinition, FfiType, Type, Callable}};
 use anyhow::{Context, Result};
 use askama::Template;
+use heck::ToKebabCase;
 
 use crate::bindings::filters;
 
 pub struct Bindings {
+    pub package_json_contents: String,
     pub livekit_sys_template_contents: String,
     pub node_ts_file_contents: String,
+}
+
+#[derive(Template)]
+#[template(escape = "none", path = "package.json")]
+struct PackageJsonTemplate<'ci> {
+    ci: &'ci ComponentInterface,
+    node_ts_main_file_name: String,
+}
+
+impl<'ci> PackageJsonTemplate<'ci> {
+    pub fn new(ci: &'ci ComponentInterface, node_ts_main_file_name: &str) -> Self {
+        Self {
+            ci,
+            node_ts_main_file_name: node_ts_main_file_name.into(),
+        }
+    }
 }
 
 #[derive(Template)]
@@ -35,11 +53,13 @@ impl<'ci> NodeTs<'ci> {
     }
 }
 
-pub fn generate_node_bindings(ci: &ComponentInterface) -> Result<Bindings> {
+pub fn generate_node_bindings(ci: &ComponentInterface, node_ts_main_file_name: &str) -> Result<Bindings> {
+    let package_json_contents = PackageJsonTemplate::new(ci, node_ts_main_file_name).render().context("failed to render package.json template")?;
     let livekit_sys_template_contents = LivekitSysTemplate::new(ci).render().context("failed to render livekit-sys.ts template")?;
     let node_ts_file_contents = NodeTs::new(ci).render().context("failed to render node.ts template")?;
 
     Ok(Bindings {
+        package_json_contents,
         livekit_sys_template_contents,
         node_ts_file_contents,
     })
