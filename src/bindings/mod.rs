@@ -1,3 +1,4 @@
+use heck::ToKebabCase;
 use uniffi_bindgen::{BindingGenerator, GenerationSettings};
 use anyhow::Result;
 use serde::Deserialize;
@@ -49,10 +50,10 @@ impl BindingGenerator for NodeBindingGenerator {
                 node_ts_file_contents,
             } = generate_node_bindings(&ci)?;
 
-            let node_ts_file_path = settings.out_dir.join(format!("{}_node.ts", ci.namespace()));
+            let node_ts_file_path = settings.out_dir.join(format!("{}-node.ts", ci.namespace().to_kebab_case()));
             write_with_dirs(&node_ts_file_path, node_ts_file_contents)?;
 
-            let livekit_sys_template_path = settings.out_dir.join(format!("{}-sys.ts", ci.namespace()));
+            let livekit_sys_template_path = settings.out_dir.join(format!("{}-sys.ts", ci.namespace().to_kebab_case()));
             write_with_dirs(&livekit_sys_template_path, livekit_sys_template_contents)?;
         }
 
