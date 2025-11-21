@@ -1,3 +1,4 @@
+use heck::ToKebabCase;
 use uniffi_bindgen::{BindingGenerator, GenerationSettings};
 use anyhow::Result;
 use serde::Deserialize;
@@ -44,15 +45,21 @@ impl BindingGenerator for NodeBindingGenerator {
         components: &[uniffi_bindgen::Component<Self::Config>],
     ) -> Result<()> {
         for uniffi_bindgen::Component { ci, config: _, .. } in components {
+            let node_ts_main_file_name = format!("{}-node.ts", ci.namespace().to_kebab_case());
+
             let Bindings {
+                package_json_contents,
                 livekit_sys_template_contents,
                 node_ts_file_contents,
-            } = generate_node_bindings(&ci)?;
+            } = generate_node_bindings(&ci, node_ts_main_file_name.as_str())?;
 
-            let node_ts_file_path = settings.out_dir.join(format!("{}_node.ts", ci.namespace()));
+            let package_json_path = settings.out_dir.join("package.json");
+            write_with_dirs(&package_json_path, package_json_contents)?;
+
+            let node_ts_file_path = settings.out_dir.join(node_ts_main_file_name);
             write_with_dirs(&node_ts_file_path, node_ts_file_contents)?;
 
-            let livekit_sys_template_path = settings.out_dir.join(format!("{}-sys.ts", ci.namespace()));
+            let livekit_sys_template_path = settings.out_dir.join(format!("{}-sys.ts", ci.namespace().to_kebab_case()));
             write_with_dirs(&livekit_sys_template_path, livekit_sys_template_contents)?;
         }
 

@@ -1,0 +1,15 @@
+{
+  "name": "lib{{ ci.crate_name().to_kebab_case() }}",
+  "description": "Uniffi wrapper around the {{ ci.crate_name() }} rust crate.",
+  "version": "0.0.1",
+  {# "main": "{{ node_ts_main_file_name }}.js", FIXME: should this be set? But then I'd need to define a whole build system in here, and that is probably going too far... -#}
+  "dependencies": {
+    "ffi-rs": "^1.3.0",
+    "ref-napi": "^3.0.3",
+    "uniffi-bindgen-react-native": "^0.29.3-1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.2",
+    "@types/ref-napi": "^3.0.12"
+  }
+}
