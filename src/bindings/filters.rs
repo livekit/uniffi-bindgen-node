@@ -2,6 +2,10 @@ use askama::Result;
 use heck::{ToLowerCamelCase, ToPascalCase, ToUpperCamelCase, ToSnakeCase};
 use uniffi_bindgen::interface::{AsType, FfiDefinition, FfiType, Type};
 
+fn strip_comments(input: impl AsRef<str>) -> String {
+    input.as_ref().replace("/* ", "").replace(" */", "")
+}
+
 pub fn typescript_type_name(typ: &impl AsType, askama_values: &dyn askama::Values) -> Result<String> {
     Ok(match typ.as_type() {
         Type::Int8 => "/*i8*/number".into(),
@@ -56,8 +60,8 @@ pub fn typescript_ffi_type_name(ffi_type: &FfiType, askama_values: &dyn askama::
         FfiType::Struct(name) => typescript_ffi_struct_name(name, askama_values)?,
         FfiType::Handle => "/* handle */ bigint".into(),
         FfiType::RustCallStatus => "/* RustCallStatus */ JsExternal".into(),
-        FfiType::MutReference(inner) => format!("/* MutReference to {} */ JsExternal", typescript_ffi_type_name(inner, askama_values)?),
-        FfiType::Reference(inner) => format!("/* Reference to {} */ JsExternal", typescript_ffi_type_name(inner, askama_values)?),
+        FfiType::MutReference(inner) => format!("/* MutReference to {} */ JsExternal", strip_comments(typescript_ffi_type_name(inner, askama_values)?)),
+        FfiType::Reference(inner) => format!("/* Reference to {} */ JsExternal", strip_comments(typescript_ffi_type_name(inner, askama_values)?)),
         FfiType::VoidPointer => "void".into(), // ???
     })
 }
@@ -80,8 +84,8 @@ pub fn typescript_ffi_datatype_name(ffi_type: &FfiType, askama_values: &dyn aska
         FfiType::Struct(name) => format!("/* {} */ DataType.U8Array", typescript_ffi_struct_name(name, askama_values)?), // FIXME: this should make struct definitions in ffi-rs
         FfiType::Handle => "/* handle */ DataType.U64".into(),
         FfiType::RustCallStatus => "/* RustCallStatus */ DataType.External".into(),
-        FfiType::MutReference(inner) => format!("/* MutReference to {} */ DataType.External", typescript_ffi_type_name(inner, askama_values)?),
-        FfiType::Reference(inner) => format!("/* Reference to {} */ DataType.External", typescript_ffi_type_name(inner, askama_values)?),
+        FfiType::MutReference(inner) => format!("/* MutReference to {} */ DataType.External", strip_comments(typescript_ffi_type_name(inner, askama_values)?)),
+        FfiType::Reference(inner) => format!("/* Reference to {} */ DataType.External", strip_comments(typescript_ffi_type_name(inner, askama_values)?)),
         FfiType::VoidPointer => "DataType.Void".into(), // ???
     })
 }
