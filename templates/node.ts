@@ -274,7 +274,7 @@ import FFI_DYNAMIC_LIB, {
       {%- else -%}
     {%- endmatch %}
   {%- endfor %}
-} from './{{ci.namespace()}}-sys';
+} from './{{ci.namespace().to_kebab_case()}}-sys';
 
 
 
