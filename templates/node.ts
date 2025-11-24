@@ -1,24 +1,4 @@
-{% macro docstring(optional_docstring) %}
-    {%- if let Some(docstring) = optional_docstring -%}
-/**
-{%- for line in docstring.split("\n") %}
-  * {{line}}
-{%- endfor %}
-  */
-    {%- endif -%}
-{% endmacro %}
-
-{% macro function_arg_list(func) %}
-	{%- for arg in func.arguments() -%}
-	    {%- let type_ = arg.as_type() -%}
-	    {{ arg.name() | typescript_var_name }}: {{ arg | typescript_type_name }}
-		{%- if !loop.last %}, {% endif -%}
-	{%- endfor -%}
-  {%- if func.is_async() -%}
-    {%- if !func.arguments().is_empty() %}, {% endif -%}
-    asyncOpts_?: { signal: AbortSignal }
-  {%- endif -%}
-{%- endmacro %}
+{%- import "macros.ts" as ts %}
 
 {%- macro function_return_type(func_def) -%}
   {%- if let Some(ret_type) = func_def.return_type() -%}: {# space #}
@@ -284,10 +264,10 @@ import FFI_DYNAMIC_LIB, {
 // ==========
 
 {% for record_def in ci.record_definitions() %}
-{% call docstring(record_def.docstring()) %}
+{% call ts::docstring(record_def, 0) %}
 export type {{ record_def.name() | typescript_class_name }} = {
   {%- for field_def in record_def.fields() -%}
-    {% call docstring(field_def.docstring()) %}
+    {% call ts::docstring(field_def, 0) %}
     {%- let type_ = field_def.as_type() %}
     {{field_def.name() | typescript_var_name}}: {{field_def | typescript_type_name}};
   {%- endfor %}
@@ -354,57 +334,7 @@ const {{ record_def.name() | typescript_ffi_converter_struct_enum_object_name }}
 // ==========
 
 {% for enum_def in ci.enum_definitions() %}
-{% call docstring(enum_def.docstring()) %}
-export type {{ enum_def.name() | typescript_class_name }} =
-{%- for variant in enum_def.variants() %}
-    {% call docstring(variant.docstring()) %}
-
-    {%- if !variant.fields().is_empty() -%}
-    | {
-      variant: "{{variant.name() | typescript_var_name }}",
-      values: {
-        {%- for field_def in variant.fields() -%}
-          {%- let type_ = field_def.as_type() %}
-          {{field_def.name() | typescript_var_name}}_: {{field_def | typescript_type_name}}
-          {%- if !loop.last %}, {% endif -%}
-        {%- endfor %}
-      }
-    }
-    {%- else -%}
-    | "{{variant.name() | typescript_var_name -}}"
-    {%- endif -%}
-{%- endfor %}
-
-export const {{ enum_def.name() | typescript_ffi_converter_struct_enum_object_name }} = (() => {
-  const ordinalConverter = FfiConverterInt32;
-  type TypeName = {{ enum_def.name() | typescript_class_name }};
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    read(from: RustBuffer): TypeName {
-      // FIXME: this does not handle enum variants with associated fields right now!
-      switch (ordinalConverter.read(from)) {
-        {% for (index, variant) in enum_def.variants().iter().enumerate() -%}
-        case {{ index }}:
-          return "{{ variant.name() | typescript_var_name }}";
-        {% endfor -%}
-        default:
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
-    }
-    write(value: TypeName, into: RustBuffer): void {
-      switch (value) {
-        {% for (index, variant) in enum_def.variants().iter().enumerate() -%}
-        case "{{ variant.name() | typescript_var_name }}":
-          return ordinalConverter.write({{ index }}, into);
-        {% endfor -%}
-      }
-    }
-    allocationSize(value: TypeName): number {
-      return ordinalConverter.allocationSize(0);
-    }
-  }
-  return new FFIConverter();
-})();
-
+{%- include "Enum.ts" %}
 {% endfor %}
 
 // ==========
@@ -414,14 +344,14 @@ export const {{ enum_def.name() | typescript_ffi_converter_struct_enum_object_na
 {% for object_def in ci.object_definitions() %}
 export type {{ object_def.name() | typescript_protocol_name }} = {
   {% for method_def in object_def.methods() %}
-    {%- call docstring(method_def.docstring()) -%}
+    {%- call ts::docstring(method_def, 0) -%}
     {%- if method_def.is_async() -%}/* async */ {% endif -%}{{ method_def.name() | typescript_var_name }}(
-      {%- call function_arg_list(method_def) -%}
+      {%- call ts::param_list(method_def) -%}
     ){% call function_return_type_or_void(method_def) %};
   {% endfor %}
 };
 
-{% call docstring(object_def.docstring()) %}
+{% call ts::docstring(object_def, 0) %}
 export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstractObject implements {{ object_def.name() | typescript_protocol_name }} {
   readonly [uniffiTypeNameSymbol] = '{{ object_def.name() }}';
   readonly [destructorGuardSymbol]: UniffiRustArcPtr;
@@ -429,9 +359,9 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
 
   // Constructors:
   {% for constructor_fn in object_def.constructors() -%}
-  {% call docstring(constructor_fn.docstring()) %}
+  {% call ts::docstring(constructor_fn, 0) %}
   {% if constructor_fn.is_primary_constructor() -%}
-  constructor({%- call function_arg_list(constructor_fn) -%}) {
+  constructor({%- call ts::param_list(constructor_fn) -%}) {
     super();
 
     {% for arg in constructor_fn.arguments() -%}
@@ -460,7 +390,7 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
   }
   {%- else %}
     static {{ constructor_fn.name() | typescript_var_name }}(
-      {%- call function_arg_list(constructor_fn) -%}
+      {%- call ts::param_list(constructor_fn) -%}
     ){% call function_return_type_or_void(constructor_fn) %} {
       {%- call function_call_body(constructor_fn) -%}
     }
@@ -469,9 +399,9 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
 
   // Methods:
   {% for method_def in object_def.methods() %}
-    {% call docstring(method_def.docstring()) %}
+    {% call ts::docstring(method_def, 0) %}
     {%- if method_def.is_async() -%}async {% endif -%}{{ method_def.name() | typescript_var_name }}(
-      {%- call function_arg_list(method_def) -%}
+      {%- call ts::param_list(method_def) -%}
     ){% call function_return_type_or_void(method_def) %} {
       {%- call function_call_body(method_def, object_def.name()) -%}
     }
@@ -603,9 +533,9 @@ const {{ object_def.name() | typescript_ffi_converter_struct_enum_object_name }}
 // ==========
 
 {% for func_def in ci.function_definitions() %}
-{% call docstring(func_def.docstring()) %}
+{% call ts::docstring(func_def, 0) %}
 export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() | typescript_fn_name }}(
-  {%- call function_arg_list(func_def) -%}
+  {%- call ts::param_list(func_def) -%}
 ){%- if let Some(ret_type) = func_def.return_type() -%}: {% if func_def.is_async() -%}
   Promise<{%- endif -%}{{ ret_type | typescript_type_name }}{%- if func_def.is_async() -%}>{%- endif -%}
 {%- endif %} {

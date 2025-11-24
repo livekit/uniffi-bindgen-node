@@ -185,3 +185,9 @@ pub fn typescript_ffi_converter_struct_enum_object_name(struct_name: &str, _: &d
 pub fn typescript_ffi_object_factory_name(object_name: &str, values: &dyn askama::Values) -> Result<String> {
     Ok(format!("uniffiType{}ObjectFactory", typescript_class_name(object_name, values)?))
 }
+
+pub fn typescript_docstring(s: &str, _: &dyn askama::Values, level: &i32) -> Result<String> {
+    let contents = textwrap::indent(&textwrap::dedent(s), " * ");
+    let comment = format!("/**\n{contents}\n */");
+    Ok(textwrap::indent(&comment, &" ".repeat(*level as usize)))
+}
