@@ -6,10 +6,19 @@ mod bindings;
 mod utils;
 
 #[derive(Debug, Clone, Default, clap::ValueEnum)]
-enum OutputModuleType {
+enum ModuleType {
     CommonJs,
     #[default]
     ESM,
+}
+
+impl Into<bindings::utils::OutputModuleType> for ModuleType {
+    fn into(self) -> bindings::utils::OutputModuleType {
+        match self {
+            ModuleType::ESM => bindings::utils::OutputModuleType::ESM,
+            ModuleType::CommonJs => bindings::utils::OutputModuleType::CommonJs,
+        }
+    }
 }
 
 /// UniFFI binding generator for Node.js
@@ -30,7 +39,7 @@ pub struct Args {
     /// The set of buildin apis which should be used to get the current
     /// directory - `__dirname` or `import.meta.url`.
     #[arg(short, long, value_enum)]
-    out_dirname_api: OutputModuleType,
+    out_dirname_api: ModuleType,
 
     /// Config file override.
     #[arg(short, long)]
@@ -44,7 +53,7 @@ pub fn run(args: Args) -> Result<()> {
         let metadata = cmd.exec().context("error running cargo metadata")?;
         CrateConfigSupplier::from(metadata)
     };
-    let node_binding_generator = bindings::NodeBindingGenerator::new(args.out_dirname_api);
+    let node_binding_generator = bindings::NodeBindingGenerator::new(args.out_dirname_api.into());
 
     uniffi_bindgen::library_mode::generate_bindings(
         &args.lib_source,

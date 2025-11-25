@@ -5,7 +5,7 @@ use serde::Deserialize;
 
 mod generator;
 mod filters;
-mod utils;
+pub mod utils;
 
 use crate::{bindings::generator::{generate_node_bindings, Bindings}, utils::write_with_dirs};
 
