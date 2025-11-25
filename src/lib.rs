@@ -5,6 +5,13 @@ use clap::Parser;
 mod bindings;
 mod utils;
 
+#[derive(Debug, Clone, Default, clap::ValueEnum)]
+enum OutputModuleType {
+    CommonJs,
+    #[default]
+    ESM,
+}
+
 /// UniFFI binding generator for Node.js
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -20,6 +27,11 @@ pub struct Args {
     #[arg(long, default_value = "livekit_uniffi")]
     crate_name: String,
 
+    /// The set of buildin apis which should be used to get the current
+    /// directory - `__dirname` or `import.meta.url`.
+    #[arg(short, long, value_enum)]
+    out_dirname_api: OutputModuleType,
+
     /// Config file override.
     #[arg(short, long)]
     config_override: Option<Utf8PathBuf>,
@@ -32,7 +44,7 @@ pub fn run(args: Args) -> Result<()> {
         let metadata = cmd.exec().context("error running cargo metadata")?;
         CrateConfigSupplier::from(metadata)
     };
-    let node_binding_generator = bindings::NodeBindingGenerator::new();
+    let node_binding_generator = bindings::NodeBindingGenerator::new(args.out_dirname_api);
 
     uniffi_bindgen::library_mode::generate_bindings(
         &args.lib_source,

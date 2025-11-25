@@ -1,4 +1,7 @@
-import { join } from "path";
+import { join, dirname } from "path";
+{% if out_dirname_api == OutputModuleType::ESM %}
+import { fileURLToPath } from 'url';
+{% endif %}
 import {
   DataType,
   JsExternal,
@@ -32,7 +35,13 @@ function _uniffi_load() {
     console.warn("Unsupported platform:", platform);
     ext = "so";
   }
-  const libraryPath = join(__dirname, `${library}.${ext}`);
+  {% match out_dirname_api %}
+  {% when OutputModuleType::CommonJs %}
+  const libraryDirectory = __dirname;
+  {% when OutputModuleType::ESM %}
+  const libraryDirectory = dirname(fileURLToPath(import.meta.url));
+  {% endmatch %}
+  const libraryPath = join(libraryDirectory, `${library}.${ext}`);
   open({ library, path: libraryPath });
 }
 _uniffi_load();
