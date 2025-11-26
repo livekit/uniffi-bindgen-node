@@ -13,3 +13,15 @@
 {%- else %}
 {%- endmatch %}
 {%- endmacro %}
+
+{%- macro import_file_path(file_name) -%}
+  {{- file_name -}}
+  {%- match out_import_extension -%}
+    {%- when ImportExtension::None -%}
+      {# explicitly empty #}
+    {%- when ImportExtension::Ts -%}
+      .ts
+    {%- when ImportExtension::Js -%}
+      .js
+  {%- endmatch -%}
+{%- endmacro -%}

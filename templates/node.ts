@@ -129,7 +129,7 @@
     {%- match func_def.throws_type() -%}
       {%- when Some(err) -%}
         uniffiCaller.rustCallWithError(
-          /*liftError:*/ FfiConverterTypeAccessTokenError.lift.bind(FfiConverterTypeAccessTokenError), // FIXME: where does this error type come from?
+          /*liftError:*/ {{err | typescript_ffi_converter_name}}.lift.bind({{err | typescript_ffi_converter_name}}),
           /*caller:*/ (callStatus) => {
       {%- else -%}
         uniffiCaller.rustCall(
@@ -216,7 +216,7 @@ import {
 
 import {
   DataType,
-  JsExternal,
+  type JsExternal,
   open, /* close, */
   define,
   load,
@@ -229,7 +229,7 @@ import {
   freePointer,
   isNullPointer,
   PointerType,
-  FieldType,
+  type FieldType,
 } from 'ffi-rs';
 
 
@@ -254,8 +254,11 @@ import FFI_DYNAMIC_LIB, {
       {%- else -%}
     {%- endmatch %}
   {%- endfor %}
-} from './{{ci.namespace().to_kebab_case()}}-sys';
+} from './{%- call ts::import_file_path(sys_ts_main_file_name) -%}';
 
+{% if out_disable_auto_loading_lib %}
+export { uniffiLoad, uniffiUnload } from './{%- call ts::import_file_path(sys_ts_main_file_name) -%}';
+{% endif %}
 
 
 

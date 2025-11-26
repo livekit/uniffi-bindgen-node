@@ -1,4 +1,7 @@
-import { join } from "path";
+import { join, dirname } from "path";
+{% if out_dirname_api == DirnameApi::ImportMetaUrl %}
+import { fileURLToPath } from 'url';
+{% endif %}
 import {
   DataType,
   JsExternal,
@@ -23,8 +26,12 @@ import {
 const CALL_SUCCESS = 0, CALL_ERROR = 1, CALL_UNEXPECTED_ERROR = 2, CALL_CANCELLED = 3;
 
 
-/// Load the dynamic library.
-function _uniffi_load() {
+let libraryLoaded = false;
+/**
+ * Loads the dynamic library from disk into memory.
+ * {% if out_disable_auto_loading_lib -%}NOTE: this must be called before any other functions in this module are called.{%- endif %}
+ */
+function _uniffiLoad() {
   const library = "lib{{ ci.crate_name() }}";
   const { platform } = process;
   let ext = { darwin: "dylib", win32: "dll", linux: "so" }[platform];
@@ -32,15 +39,44 @@ function _uniffi_load() {
     console.warn("Unsupported platform:", platform);
     ext = "so";
   }
-  const libraryPath = join(__dirname, `${library}.${ext}`);
+  {% match out_dirname_api %}
+  {% when DirnameApi::Dirname %}
+  const libraryDirectory = __dirname;
+  {% when DirnameApi::ImportMetaUrl %}
+  const libraryDirectory = dirname(fileURLToPath(import.meta.url));
+  {% endmatch %}
+  const libraryPath = join(libraryDirectory, `${library}.${ext}`);
   open({ library, path: libraryPath });
+  libraryLoaded = true;
 }
-_uniffi_load();
+
+/**
+ * Unloads the dynamic library from disk from memory. This can be used to clean up the library early
+ * before program execution completes.
+ */
+function _uniffiUnload() {
+  close('lib{{ ci.crate_name() }}');
+  libraryLoaded = false;
+}
+
+function _checkUniffiLoaded() {
+  if (!libraryLoaded) {
+    throw new Error('Uniffi function call was issued, but the native dependency was not loaded. Ensure you are calling uniffiLoad() before interacting with any uniffi backed functionality.');
+  }
+}
+
+{% if out_disable_auto_loading_lib %}
+export { _uniffiLoad as uniffiLoad, _uniffiUnload as uniffiUnload };
+{% else %}
+_uniffiLoad();
+{% endif %}
 
 // Release library memory before process terminates
 // TODO: is this even really required?
 process.on('beforeExit', () => {
-  close('lib{{ ci.crate_name() }}');
+  if (libraryLoaded) {
+    _uniffiUnload();
+  }
 });
 
 
@@ -93,6 +129,8 @@ class UniffiFfiRsRustCaller {
     liftString: (bytes: UniffiByteArray) => string,
     liftError?: (buffer: UniffiByteArray) => Error,
   ): T {
+    _checkUniffiLoaded();
+
     const $callStatus = this.createCallStatus();
     let returnedVal = caller(unwrapPointer($callStatus)[0]);
 

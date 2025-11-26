@@ -5,14 +5,23 @@ use serde::Deserialize;
 
 mod generator;
 mod filters;
+pub mod utils;
 
-use crate::{bindings::generator::{Bindings, generate_node_bindings}, utils::write_with_dirs};
+use crate::{bindings::generator::{generate_node_bindings, Bindings}, utils::write_with_dirs};
 
-pub struct NodeBindingGenerator {}
+pub struct NodeBindingGenerator {
+    out_dirname_api: utils::DirnameApi,
+    out_disable_auto_loading_lib: bool,
+    out_import_extension: utils::ImportExtension,
+}
 
 impl NodeBindingGenerator {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(
+        out_dirname_api: utils::DirnameApi,
+        out_disable_auto_loading_lib: bool,
+        out_import_extension: utils::ImportExtension,
+    ) -> Self {
+        Self { out_dirname_api, out_disable_auto_loading_lib, out_import_extension }
     }
 }
 
@@ -45,22 +54,28 @@ impl BindingGenerator for NodeBindingGenerator {
         components: &[uniffi_bindgen::Component<Self::Config>],
     ) -> Result<()> {
         for uniffi_bindgen::Component { ci, config: _, .. } in components {
-            let node_ts_main_file_name = format!("{}-node.ts", ci.namespace().to_kebab_case());
+            let sys_ts_main_file_name = format!("{}-sys", ci.namespace().to_kebab_case());
 
             let Bindings {
                 package_json_contents,
-                livekit_sys_template_contents,
+                sys_template_contents,
                 node_ts_file_contents,
-            } = generate_node_bindings(&ci, node_ts_main_file_name.as_str())?;
+            } = generate_node_bindings(
+                &ci,
+                sys_ts_main_file_name.as_str(),
+                self.out_dirname_api.clone(),
+                self.out_disable_auto_loading_lib,
+                self.out_import_extension.clone(),
+            )?;
 
             let package_json_path = settings.out_dir.join("package.json");
             write_with_dirs(&package_json_path, package_json_contents)?;
 
-            let node_ts_file_path = settings.out_dir.join(node_ts_main_file_name);
+            let node_ts_file_path = settings.out_dir.join(format!("{}-node.ts", ci.namespace().to_kebab_case()));
             write_with_dirs(&node_ts_file_path, node_ts_file_contents)?;
 
-            let livekit_sys_template_path = settings.out_dir.join(format!("{}-sys.ts", ci.namespace().to_kebab_case()));
-            write_with_dirs(&livekit_sys_template_path, livekit_sys_template_contents)?;
+            let sys_template_path = settings.out_dir.join(format!("{sys_ts_main_file_name}.ts"));
+            write_with_dirs(&sys_template_path, sys_template_contents)?;
         }
 
         Ok(())
