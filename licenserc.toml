@@ -2,17 +2,7 @@ headerPath = "LICENSE.txt"
 excludes = [
     "templates",
     "*.toml",
+    ".github",
     # Generated files
     "output",
 ]
-
-[mapping.DOUBLESLASH_STYLE]
-extensions = ["proto"]
-
-[mapping.SLASHSTAR_STYLE]
-extensions = ["mm"]
-
-[properties]
-inceptionYear = 2025
-copyrightOwner = "LiveKit, Inc."
-projectName = "LiveKit Rust SDKs"
