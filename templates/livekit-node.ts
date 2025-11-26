@@ -129,7 +129,7 @@
     {%- match func_def.throws_type() -%}
       {%- when Some(err) -%}
         uniffiCaller.rustCallWithError(
-          /*liftError:*/ FfiConverterTypeAccessTokenError.lift.bind(FfiConverterTypeAccessTokenError), // FIXME: where does this error type come from?
+          /*liftError:*/ {{err | typescript_ffi_converter_name}}.lift.bind({{err | typescript_ffi_converter_name}}),
           /*caller:*/ (callStatus) => {
       {%- else -%}
         uniffiCaller.rustCall(
