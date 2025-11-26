@@ -58,7 +58,7 @@ impl BindingGenerator for NodeBindingGenerator {
 
             let Bindings {
                 package_json_contents,
-                livekit_sys_template_contents,
+                sys_template_contents,
                 node_ts_file_contents,
             } = generate_node_bindings(
                 &ci,
@@ -74,8 +74,8 @@ impl BindingGenerator for NodeBindingGenerator {
             let node_ts_file_path = settings.out_dir.join(format!("{}-node.ts", ci.namespace().to_kebab_case()));
             write_with_dirs(&node_ts_file_path, node_ts_file_contents)?;
 
-            let livekit_sys_template_path = settings.out_dir.join(format!("{sys_ts_main_file_name}.ts"));
-            write_with_dirs(&livekit_sys_template_path, livekit_sys_template_contents)?;
+            let sys_template_path = settings.out_dir.join(format!("{sys_ts_main_file_name}.ts"));
+            write_with_dirs(&sys_template_path, sys_template_contents)?;
         }
 
         Ok(())
