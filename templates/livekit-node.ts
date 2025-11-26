@@ -254,10 +254,10 @@ import FFI_DYNAMIC_LIB, {
       {%- else -%}
     {%- endmatch %}
   {%- endfor %}
-} from './{{ci.namespace().to_kebab_case()}}-sys';
+} from './{{sys_ts_main_file_name}}';
 
 {% if out_disable_auto_loading_lib %}
-export { uniffiLoad, uniffiUnload } from './{{ci.namespace().to_kebab_case()}}-sys';
+export { uniffiLoad, uniffiUnload } from './{{sys_ts_main_file_name}}';
 {% endif %}
 
 
