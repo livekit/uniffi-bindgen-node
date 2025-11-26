@@ -12,11 +12,16 @@ use crate::{bindings::generator::{generate_node_bindings, Bindings}, utils::writ
 pub struct NodeBindingGenerator {
     out_dirname_api: utils::DirnameApi,
     out_disable_auto_loading_lib: bool,
+    out_import_extension: utils::ImportExtension,
 }
 
 impl NodeBindingGenerator {
-    pub fn new(out_dirname_api: utils::DirnameApi, out_disable_auto_loading_lib: bool) -> Self {
-        Self { out_dirname_api, out_disable_auto_loading_lib }
+    pub fn new(
+        out_dirname_api: utils::DirnameApi,
+        out_disable_auto_loading_lib: bool,
+        out_import_extension: utils::ImportExtension,
+    ) -> Self {
+        Self { out_dirname_api, out_disable_auto_loading_lib, out_import_extension }
     }
 }
 
@@ -49,7 +54,7 @@ impl BindingGenerator for NodeBindingGenerator {
         components: &[uniffi_bindgen::Component<Self::Config>],
     ) -> Result<()> {
         for uniffi_bindgen::Component { ci, config: _, .. } in components {
-            let node_ts_main_file_name = format!("{}-node.ts", ci.namespace().to_kebab_case());
+            let sys_ts_main_file_name = format!("{}-sys", ci.namespace().to_kebab_case());
 
             let Bindings {
                 package_json_contents,
@@ -60,6 +65,7 @@ impl BindingGenerator for NodeBindingGenerator {
                 sys_ts_main_file_name.as_str(),
                 self.out_dirname_api.clone(),
                 self.out_disable_auto_loading_lib,
+                self.out_import_extension.clone(),
             )?;
 
             let package_json_path = settings.out_dir.join("package.json");
@@ -68,7 +74,7 @@ impl BindingGenerator for NodeBindingGenerator {
             let node_ts_file_path = settings.out_dir.join(format!("{}-node.ts", ci.namespace().to_kebab_case()));
             write_with_dirs(&node_ts_file_path, node_ts_file_contents)?;
 
-            let livekit_sys_template_path = settings.out_dir.join(sys_ts_main_file_name);
+            let livekit_sys_template_path = settings.out_dir.join(format!("{sys_ts_main_file_name}.ts"));
             write_with_dirs(&livekit_sys_template_path, livekit_sys_template_contents)?;
         }
 

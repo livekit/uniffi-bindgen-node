@@ -21,6 +21,24 @@ impl Into<bindings::utils::DirnameApi> for OutputDirnameApi {
     }
 }
 
+#[derive(Debug, Clone, Default, clap::ValueEnum)]
+enum OutputImportExtension {
+    #[default]
+    None,
+    Ts,
+    Js,
+}
+
+impl Into<bindings::utils::ImportExtension> for OutputImportExtension {
+    fn into(self) -> bindings::utils::ImportExtension {
+        match self {
+            OutputImportExtension::None => bindings::utils::ImportExtension::None,
+            OutputImportExtension::Ts => bindings::utils::ImportExtension::Ts,
+            OutputImportExtension::Js => bindings::utils::ImportExtension::Js,
+        }
+    }
+}
+
 /// UniFFI binding generator for Node.js
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -50,6 +68,15 @@ pub struct Args {
     #[arg(long, action)]
     out_disable_auto_load_lib: bool,
 
+    /// If specified, the dylib/so/dll native dependency won't be automatically loaded
+    /// when the bindgen is imported. If this flag is set, explicit `uniffiLoad` / `uniffiUnload`
+    /// will be exported from the generated package which must be called before any uniffi calls
+    /// are made.
+    ///
+    /// Use this if you want to only load a bindgen sometimes (ie, it is an optional dependency).
+    #[arg(long, action, value_enum, default_value_t=OutputImportExtension::default())]
+    out_import_extension: OutputImportExtension,
+
     /// Config file override.
     #[arg(short, long)]
     config_override: Option<Utf8PathBuf>,
@@ -65,6 +92,7 @@ pub fn run(args: Args) -> Result<()> {
     let node_binding_generator = bindings::NodeBindingGenerator::new(
         args.out_dirname_api.into(),
         args.out_disable_auto_load_lib,
+        args.out_import_extension.into(),
     );
 
     uniffi_bindgen::library_mode::generate_bindings(
