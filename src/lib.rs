@@ -55,7 +55,7 @@ pub struct Args {
     out_dir: Utf8PathBuf,
 
     /// Name of the crate.
-    #[arg(long, default_value = "livekit_uniffi")]
+    #[arg(long)]
     crate_name: String,
 
     /// The set of buildin apis which should be used to get the current
