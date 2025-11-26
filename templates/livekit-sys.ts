@@ -55,6 +55,12 @@ function _uniffiUnload() {
   libraryLoaded = false;
 }
 
+function _checkUniffiLoaded() {
+  if (!libraryLoaded) {
+    throw new Error('Uniffi function call was issued, but the native dependency was not loaded. Ensure you are calling uniffiLoad() before interacting with any uniffi backed functionality.');
+  }
+}
+
 {% if out_disable_auto_loading_lib %}
 export { _uniffiLoad as uniffiLoad, _uniffiUnload as uniffiUnload };
 {% else %}
@@ -119,6 +125,8 @@ class UniffiFfiRsRustCaller {
     liftString: (bytes: UniffiByteArray) => string,
     liftError?: (buffer: UniffiByteArray) => Error,
   ): T {
+    _checkUniffiLoaded();
+
     const $callStatus = this.createCallStatus();
     let returnedVal = caller(unwrapPointer($callStatus)[0]);
 
