@@ -1,4 +1,8 @@
 #!/bin/bash
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/
+
 
 # A script for exercising the node bindgen in local development. Use this to exercise it against
 # arbitary dylibs for testing edge cases, working on new bindgen features, etc.
