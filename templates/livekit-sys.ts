@@ -1,5 +1,5 @@
 import { join, dirname } from "path";
-{% if out_dirname_api == OutputModuleType::ESM %}
+{% if out_dirname_api == DirnameApi::ImportMetaUrl %}
 import { fileURLToPath } from 'url';
 {% endif %}
 import {
@@ -36,9 +36,9 @@ function _uniffi_load() {
     ext = "so";
   }
   {% match out_dirname_api %}
-  {% when OutputModuleType::CommonJs %}
+  {% when DirnameApi::Dirname %}
   const libraryDirectory = __dirname;
-  {% when OutputModuleType::ESM %}
+  {% when DirnameApi::ImportMetaUrl %}
   const libraryDirectory = dirname(fileURLToPath(import.meta.url));
   {% endmatch %}
   const libraryPath = join(libraryDirectory, `${library}.${ext}`);

@@ -5,18 +5,17 @@ use clap::Parser;
 mod bindings;
 mod utils;
 
-#[derive(Debug, Clone, Default, clap::ValueEnum)]
-enum ModuleType {
-    CommonJs,
-    #[default]
-    ESM,
+#[derive(Debug, Clone, clap::ValueEnum)]
+enum OutputDirnameApi {
+    Dirname,
+    ImportMetaUrl,
 }
 
-impl Into<bindings::utils::OutputModuleType> for ModuleType {
-    fn into(self) -> bindings::utils::OutputModuleType {
+impl Into<bindings::utils::DirnameApi> for OutputDirnameApi {
+    fn into(self) -> bindings::utils::DirnameApi {
         match self {
-            ModuleType::ESM => bindings::utils::OutputModuleType::ESM,
-            ModuleType::CommonJs => bindings::utils::OutputModuleType::CommonJs,
+            OutputDirnameApi::ImportMetaUrl => bindings::utils::DirnameApi::ImportMetaUrl,
+            OutputDirnameApi::Dirname => bindings::utils::DirnameApi::Dirname,
         }
     }
 }
@@ -38,8 +37,8 @@ pub struct Args {
 
     /// The set of buildin apis which should be used to get the current
     /// directory - `__dirname` or `import.meta.url`.
-    #[arg(short, long, value_enum)]
-    out_dirname_api: ModuleType,
+    #[arg(long, value_enum, default_value_t=OutputDirnameApi::Dirname)]
+    out_dirname_api: OutputDirnameApi,
 
     /// Config file override.
     #[arg(short, long)]

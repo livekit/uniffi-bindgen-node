@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use askama::Template;
 use heck::ToKebabCase;
 
-use crate::{bindings::{filters, utils::OutputModuleType}};
+use crate::{bindings::{filters, utils::DirnameApi}};
 
 pub struct Bindings {
     pub package_json_contents: String,
@@ -32,11 +32,15 @@ impl<'ci> PackageJsonTemplate<'ci> {
 #[template(escape = "none", path = "livekit-sys.ts")]
 struct LivekitSysTemplate<'ci> {
     ci: &'ci ComponentInterface,
-    out_dirname_api: OutputModuleType,
+
+    out_dirname_api: DirnameApi,
 }
 
 impl<'ci> LivekitSysTemplate<'ci> {
-    pub fn new(ci: &'ci ComponentInterface, out_dirname_api: OutputModuleType) -> Self {
+    pub fn new(
+        ci: &'ci ComponentInterface,
+        out_dirname_api: DirnameApi,
+    ) -> Self {
         Self { ci, out_dirname_api }
     }
 }
@@ -57,7 +61,7 @@ impl<'ci> NodeTs<'ci> {
 pub fn generate_node_bindings(
     ci: &ComponentInterface,
     node_ts_main_file_name: &str,
-    out_dirname_api: OutputModuleType,
+    out_dirname_api: DirnameApi,
 ) -> Result<Bindings> {
     let package_json_contents = PackageJsonTemplate::new(ci, node_ts_main_file_name).render().context("failed to render package.json template")?;
     let livekit_sys_template_contents = LivekitSysTemplate::new(ci, out_dirname_api).render().context("failed to render livekit-sys.ts template")?;

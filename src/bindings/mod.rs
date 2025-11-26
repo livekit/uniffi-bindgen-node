@@ -10,11 +10,11 @@ pub mod utils;
 use crate::{bindings::generator::{generate_node_bindings, Bindings}, utils::write_with_dirs};
 
 pub struct NodeBindingGenerator {
-    out_dirname_api: utils::OutputModuleType,
+    out_dirname_api: utils::DirnameApi,
 }
 
 impl NodeBindingGenerator {
-    pub fn new(out_dirname_api: utils::OutputModuleType) -> Self {
+    pub fn new(out_dirname_api: utils::DirnameApi) -> Self {
         Self { out_dirname_api }
     }
 }
@@ -54,7 +54,11 @@ impl BindingGenerator for NodeBindingGenerator {
                 package_json_contents,
                 livekit_sys_template_contents,
                 node_ts_file_contents,
-            } = generate_node_bindings(&ci, node_ts_main_file_name.as_str(), self.out_dirname_api.clone())?;
+            } = generate_node_bindings(
+                &ci,
+                node_ts_main_file_name.as_str(),
+                self.out_dirname_api.clone(),
+            )?;
 
             let package_json_path = settings.out_dir.join("package.json");
             write_with_dirs(&package_json_path, package_json_contents)?;
