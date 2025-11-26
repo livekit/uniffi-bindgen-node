@@ -1,6 +1,6 @@
 use askama::Result;
-use heck::{ToLowerCamelCase, ToPascalCase, ToUpperCamelCase, ToSnakeCase};
-use uniffi_bindgen::interface::{AsType, FfiDefinition, FfiType, Type};
+use heck::{ToLowerCamelCase, ToPascalCase, ToUpperCamelCase};
+use uniffi_bindgen::interface::{AsType, FfiType, Type};
 
 fn strip_comments(input: impl AsRef<str>) -> String {
     input.as_ref().replace("/* ", "").replace(" */", "")
