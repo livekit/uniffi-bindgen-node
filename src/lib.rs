@@ -68,12 +68,10 @@ pub struct Args {
     #[arg(long, action)]
     out_disable_auto_load_lib: bool,
 
-    /// If specified, the dylib/so/dll native dependency won't be automatically loaded
-    /// when the bindgen is imported. If this flag is set, explicit `uniffiLoad` / `uniffiUnload`
-    /// will be exported from the generated package which must be called before any uniffi calls
-    /// are made.
-    ///
-    /// Use this if you want to only load a bindgen sometimes (ie, it is an optional dependency).
+    /// Changes the extension used in `imports` within the final generated output. This exists
+    /// because depending on packaging / tsc configuration, the extensions of imports may be
+    /// expected to be different things. For example, tsc often requires .js extensions on .ts
+    /// files it imports.
     #[arg(long, action, value_enum, default_value_t=OutputImportExtension::default())]
     out_import_extension: OutputImportExtension,
 
