@@ -216,7 +216,7 @@ import {
 
 import {
   DataType,
-  JsExternal,
+  type JsExternal,
   open, /* close, */
   define,
   load,
@@ -229,7 +229,7 @@ import {
   freePointer,
   isNullPointer,
   PointerType,
-  FieldType,
+  type FieldType,
 } from 'ffi-rs';
 
 
