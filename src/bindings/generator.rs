@@ -52,11 +52,12 @@ impl<'ci> LivekitSysTemplate<'ci> {
 #[template(escape = "none", path = "node.ts")]
 struct NodeTs<'ci> {
     ci: &'ci ComponentInterface,
+    out_disable_auto_loading_lib: bool,
 }
 
 impl<'ci> NodeTs<'ci> {
-    pub fn new(ci: &'ci ComponentInterface) -> Self {
-        Self { ci }
+    pub fn new(ci: &'ci ComponentInterface, out_disable_auto_loading_lib: bool) -> Self {
+        Self { ci, out_disable_auto_loading_lib }
     }
 }
 
@@ -68,7 +69,7 @@ pub fn generate_node_bindings(
 ) -> Result<Bindings> {
     let package_json_contents = PackageJsonTemplate::new(ci, node_ts_main_file_name).render().context("failed to render package.json template")?;
     let livekit_sys_template_contents = LivekitSysTemplate::new(ci, out_dirname_api, out_disable_auto_loading_lib).render().context("failed to render livekit-sys.ts template")?;
-    let node_ts_file_contents = NodeTs::new(ci).render().context("failed to render node.ts template")?;
+    let node_ts_file_contents = NodeTs::new(ci, out_disable_auto_loading_lib).render().context("failed to render node.ts template")?;
 
     Ok(Bindings {
         package_json_contents,

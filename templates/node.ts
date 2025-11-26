@@ -256,6 +256,9 @@ import FFI_DYNAMIC_LIB, {
   {%- endfor %}
 } from './{{ci.namespace().to_kebab_case()}}-sys';
 
+{% if out_disable_auto_loading_lib %}
+export { uniffiLoad, uniffiUnload } from './{{ci.namespace().to_kebab_case()}}-sys';
+{% endif %}
 
 
 
