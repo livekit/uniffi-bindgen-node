@@ -5,8 +5,9 @@ use clap::Parser;
 mod bindings;
 mod utils;
 
-#[derive(Debug, Clone, clap::ValueEnum)]
+#[derive(Debug, Clone, Default, clap::ValueEnum)]
 enum OutputDirnameApi {
+    #[default]
     Dirname,
     ImportMetaUrl,
 }
@@ -37,7 +38,7 @@ pub struct Args {
 
     /// The set of buildin apis which should be used to get the current
     /// directory - `__dirname` or `import.meta.url`.
-    #[arg(long, value_enum, default_value_t=OutputDirnameApi::Dirname)]
+    #[arg(long, value_enum, default_value_t=OutputDirnameApi::default())]
     out_dirname_api: OutputDirnameApi,
 
     /// If specified, the dylib/so/dll native dependency won't be automatically loaded
