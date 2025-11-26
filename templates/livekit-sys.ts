@@ -27,7 +27,7 @@ const CALL_SUCCESS = 0, CALL_ERROR = 1, CALL_UNEXPECTED_ERROR = 2, CALL_CANCELLE
 
 
 let libraryLoaded = false;
-/*
+/**
  * Loads the dynamic library from disk into memory.
  * {% if out_disable_auto_loading_lib -%}NOTE: this must be called before any other functions in this module are called.{%- endif %}
  */
@@ -50,6 +50,10 @@ function _uniffiLoad() {
   libraryLoaded = true;
 }
 
+/**
+ * Unloads the dynamic library from disk from memory. This can be used to clean up the library early
+ * before program execution completes.
+ */
 function _uniffiUnload() {
   close('lib{{ ci.crate_name() }}');
   libraryLoaded = false;
