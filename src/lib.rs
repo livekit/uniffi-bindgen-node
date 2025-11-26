@@ -40,6 +40,15 @@ pub struct Args {
     #[arg(long, value_enum, default_value_t=OutputDirnameApi::Dirname)]
     out_dirname_api: OutputDirnameApi,
 
+    /// If specified, the dylib/so/dll native dependency won't be automatically loaded
+    /// when the bindgen is imported. If this flag is set, explicit `uniffiLoad` / `uniffiUnload`
+    /// will be exported from the generated package which must be called before any uniffi calls
+    /// are made.
+    ///
+    /// Use this if you want to only load a bindgen sometimes (ie, it is an optional dependency).
+    #[arg(long, action)]
+    out_disable_auto_load_lib: bool,
+
     /// Config file override.
     #[arg(short, long)]
     config_override: Option<Utf8PathBuf>,
@@ -52,7 +61,10 @@ pub fn run(args: Args) -> Result<()> {
         let metadata = cmd.exec().context("error running cargo metadata")?;
         CrateConfigSupplier::from(metadata)
     };
-    let node_binding_generator = bindings::NodeBindingGenerator::new(args.out_dirname_api.into());
+    let node_binding_generator = bindings::NodeBindingGenerator::new(
+        args.out_dirname_api.into(),
+        args.out_disable_auto_load_lib,
+    );
 
     uniffi_bindgen::library_mode::generate_bindings(
         &args.lib_source,

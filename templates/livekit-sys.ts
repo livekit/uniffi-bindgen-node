@@ -26,8 +26,12 @@ import {
 const CALL_SUCCESS = 0, CALL_ERROR = 1, CALL_UNEXPECTED_ERROR = 2, CALL_CANCELLED = 3;
 
 
-/// Load the dynamic library.
-function _uniffi_load() {
+let libraryLoaded = false;
+/*
+ * Loads the dynamic library from disk into memory.
+ * {% if out_disable_auto_loading_lib -%}NOTE: this must be called before any other functions in this module are called.{%- endif %}
+ */
+function _uniffiLoad() {
   const library = "lib{{ ci.crate_name() }}";
   const { platform } = process;
   let ext = { darwin: "dylib", win32: "dll", linux: "so" }[platform];
@@ -43,13 +47,26 @@ function _uniffi_load() {
   {% endmatch %}
   const libraryPath = join(libraryDirectory, `${library}.${ext}`);
   open({ library, path: libraryPath });
+  libraryLoaded = true;
 }
-_uniffi_load();
+
+function _uniffiUnload() {
+  close('lib{{ ci.crate_name() }}');
+  libraryLoaded = false;
+}
+
+{% if out_disable_auto_loading_lib %}
+export { _uniffiLoad as uniffiLoad, _uniffiUnload as uniffiUnload };
+{% else %}
+_uniffiLoad();
+{% endif %}
 
 // Release library memory before process terminates
 // TODO: is this even really required?
 process.on('beforeExit', () => {
-  close('lib{{ ci.crate_name() }}');
+  if (libraryLoaded) {
+    _uniffiUnload();
+  }
 });
 
 

@@ -11,11 +11,12 @@ use crate::{bindings::generator::{generate_node_bindings, Bindings}, utils::writ
 
 pub struct NodeBindingGenerator {
     out_dirname_api: utils::DirnameApi,
+    out_disable_auto_loading_lib: bool,
 }
 
 impl NodeBindingGenerator {
-    pub fn new(out_dirname_api: utils::DirnameApi) -> Self {
-        Self { out_dirname_api }
+    pub fn new(out_dirname_api: utils::DirnameApi, out_disable_auto_loading_lib: bool) -> Self {
+        Self { out_dirname_api, out_disable_auto_loading_lib }
     }
 }
 
@@ -58,6 +59,7 @@ impl BindingGenerator for NodeBindingGenerator {
                 &ci,
                 node_ts_main_file_name.as_str(),
                 self.out_dirname_api.clone(),
+                self.out_disable_auto_loading_lib,
             )?;
 
             let package_json_path = settings.out_dir.join("package.json");
