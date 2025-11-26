@@ -71,7 +71,7 @@ pub struct Args {
     /// Changes the extension used in `import`s within the final generated output. This exists
     /// because depending on packaging / tsc configuration, the import path extensions may be
     /// expected to end in different extensions. For example, tsc often requires .js extensions
-    /// on .ts files it imports, etc
+    /// on .ts files it imports, etc.
     #[arg(long, action, value_enum, default_value_t=OutputImportExtension::default())]
     out_import_extension: OutputImportExtension,
 
