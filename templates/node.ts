@@ -129,7 +129,7 @@
     {%- match func_def.throws_type() -%}
       {%- when Some(err) -%}
         uniffiCaller.rustCallWithError(
-          /*liftError:*/ {{err | typescript_ffi_converter_name}}.lift.bind({{err | typescript_ffi_converter_name}}),
+          /*liftError:*/ (buffer) => ["{{err | typescript_type_name}}", {{err | typescript_ffi_converter_name}}.lift(buffer)],
           /*caller:*/ (callStatus) => {
       {%- else -%}
         uniffiCaller.rustCall(
@@ -436,8 +436,8 @@ const {{ object_def.name() | typescript_ffi_object_factory_name }}: UniffiObject
   (() => {
     /// <reference lib="es2021" />
     const registry =
-      typeof globalThis.FinalizationRegistry !== 'undefined'
-        ? new globalThis.FinalizationRegistry<UnsafeMutableRawPointer>(
+      typeof (globalThis as any).FinalizationRegistry !== 'undefined'
+        ? new (globalThis as any).FinalizationRegistry(
             (heldValue: UnsafeMutableRawPointer) => {
              {{ object_def.name() | typescript_ffi_object_factory_name }}.freePointer(heldValue);
             }
