@@ -424,7 +424,7 @@ const FFI_DYNAMIC_LIB = define({
     {%- endmatch %}
 
   {%- endfor %}
-}) as {
+}) as unknown as {
   {%- for definition in ci.ffi_definitions() %}
     {%- match definition %}
 
