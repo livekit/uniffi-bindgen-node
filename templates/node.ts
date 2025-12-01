@@ -129,7 +129,7 @@
     {%- match func_def.throws_type() -%}
       {%- when Some(err) -%}
         uniffiCaller.rustCallWithError(
-          /*liftError:*/ {{err | typescript_ffi_converter_name}}.lift.bind({{err | typescript_ffi_converter_name}}),
+          /*liftError:*/ (buffer) => ["{{err | typescript_type_name}}", {{err | typescript_ffi_converter_name}}.lift(buffer)],
           /*caller:*/ (callStatus) => {
       {%- else -%}
         uniffiCaller.rustCall(

@@ -21,6 +21,7 @@ import {
   type UniffiByteArray,
   UniffiInternalError,
   uniffiCreateFfiConverterString,
+  UniffiError,
 } from 'uniffi-bindgen-react-native';
 
 const CALL_SUCCESS = 0, CALL_ERROR = 1, CALL_UNEXPECTED_ERROR = 2, CALL_CANCELLED = 3;
@@ -93,8 +94,8 @@ class UniffiFfiRsRustCaller {
     return this.makeRustCall(caller, liftString);
   }
 
-  rustCallWithError<T>(
-    liftError: (buffer: UniffiByteArray) => Error,
+  rustCallWithError<T, ErrorEnumAndVariant extends [string, string]>(
+    liftError: (buffer: UniffiByteArray) => ErrorEnumAndVariant,
     caller: (status: JsExternal) => T,
     liftString: (bytes: UniffiByteArray) => string,
   ): T {
@@ -124,10 +125,10 @@ class UniffiFfiRsRustCaller {
     // return status;
   }
 
-  makeRustCall<T>(
+  makeRustCall<T, ErrorEnumAndVariant extends [string, string]>(
     caller: (status: JsExternal) => T,
     liftString: (bytes: UniffiByteArray) => string,
-    liftError?: (buffer: UniffiByteArray) => Error,
+    liftError?: (buffer: UniffiByteArray) => ErrorEnumAndVariant,
   ): T {
     _checkUniffiLoaded();
 
@@ -144,10 +145,10 @@ class UniffiFfiRsRustCaller {
   }
 }
 
-function uniffiCheckCallStatus(
+function uniffiCheckCallStatus<ErrorEnumAndVariant extends [string, string]>(
   callStatus: UniffiRustCallStatusStruct,
   liftString: (bytes: UniffiByteArray) => string,
-  liftError?: (buffer: UniffiByteArray) => Error,
+  liftError?: (buffer: UniffiByteArray) => [string, string],
 ) {
   switch (callStatus.code) {
     case CALL_SUCCESS:
@@ -161,7 +162,8 @@ function uniffiCheckCallStatus(
         const errorBufBytes = struct.consumeIntoUint8Array();
 
         if (liftError) {
-          throw liftError(errorBufBytes);
+          const [enumName, errorVariant] = liftError(errorBufBytes);
+          throw new UniffiError(enumName, errorVariant);
         }
       }
       throw new UniffiInternalError.UnexpectedRustCallError();
