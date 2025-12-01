@@ -34,7 +34,7 @@ let libraryLoaded = false;
 function _uniffiLoad() {
   const library = "lib{{ ci.crate_name() }}";
   const { platform } = process;
-  let ext = { darwin: "dylib", win32: "dll", linux: "so" }[platform];
+  let ext = { darwin: "dylib", win32: "dll", linux: "so" }[platform as string];
   if (!ext) {
     console.warn("Unsupported platform:", platform);
     ext = "so";
