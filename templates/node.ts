@@ -256,11 +256,6 @@ import FFI_DYNAMIC_LIB, {
   {%- endfor %}
 } from './{%- call ts::import_file_path(sys_ts_main_file_name) -%}';
 
-{% if out_disable_auto_loading_lib %}
-export { uniffiLoad, uniffiUnload } from './{%- call ts::import_file_path(sys_ts_main_file_name) -%}';
-{% endif %}
-
-
 
 // ==========
 // Record definitions:

@@ -12,8 +12,9 @@ use crate::bindings::{filters, utils::{DirnameApi, ImportExtension}};
 
 pub struct Bindings {
     pub package_json_contents: String,
-    pub sys_template_contents: String,
+    pub sys_ts_template_contents: String,
     pub node_ts_file_contents: String,
+    pub index_ts_file_contents: String,
 }
 
 #[derive(Template)]
@@ -52,7 +53,6 @@ impl<'ci> SysTemplate<'ci> {
 #[template(escape = "none", path = "node.ts")]
 struct NodeTsTemplate<'ci> {
     ci: &'ci ComponentInterface,
-    out_disable_auto_loading_lib: bool,
     sys_ts_main_file_name: String,
     out_import_extension: ImportExtension,
 }
@@ -60,15 +60,38 @@ struct NodeTsTemplate<'ci> {
 impl<'ci> NodeTsTemplate<'ci> {
     pub fn new(
         ci: &'ci ComponentInterface,
-        out_disable_auto_loading_lib: bool,
         sys_ts_main_file_name: &str,
         out_import_extension: ImportExtension
     ) -> Self {
         Self {
             ci,
-            out_disable_auto_loading_lib,
             sys_ts_main_file_name: sys_ts_main_file_name.to_string(),
             out_import_extension,
+        }
+    }
+}
+
+#[derive(Template)]
+#[template(escape = "none", path = "index.ts")]
+struct IndexTsTemplate {
+    node_ts_main_file_name: String,
+    sys_ts_main_file_name: String,
+    out_import_extension: ImportExtension,
+    out_disable_auto_loading_lib: bool,
+}
+
+impl IndexTsTemplate {
+    pub fn new(
+        node_ts_main_file_name: &str,
+        sys_ts_main_file_name: &str,
+        out_import_extension: ImportExtension,
+        out_disable_auto_loading_lib: bool,
+    ) -> Self {
+        Self {
+            node_ts_main_file_name: node_ts_main_file_name.to_string(),
+            sys_ts_main_file_name: sys_ts_main_file_name.to_string(),
+            out_import_extension,
+            out_disable_auto_loading_lib,
         }
     }
 }
@@ -76,17 +99,20 @@ impl<'ci> NodeTsTemplate<'ci> {
 pub fn generate_node_bindings(
     ci: &ComponentInterface,
     sys_ts_main_file_name: &str,
+    node_ts_main_file_name: &str,
     out_dirname_api: DirnameApi,
     out_disable_auto_loading_lib: bool,
     out_import_extension: ImportExtension,
 ) -> Result<Bindings> {
     let package_json_contents = PackageJsonTemplate::new(ci).render().context("failed to render package.json template")?;
     let sys_template_contents = SysTemplate::new(ci, out_dirname_api, out_disable_auto_loading_lib).render().context("failed to render sys.ts template")?;
-    let node_ts_file_contents = NodeTsTemplate::new(ci, out_disable_auto_loading_lib, sys_ts_main_file_name, out_import_extension).render().context("failed to render node.ts template")?;
+    let node_ts_file_contents = NodeTsTemplate::new(ci, sys_ts_main_file_name, out_import_extension.clone()).render().context("failed to render node.ts template")?;
+    let index_ts_file_contents = IndexTsTemplate::new(node_ts_main_file_name, sys_ts_main_file_name, out_import_extension, out_disable_auto_loading_lib).render().context("failed to render index.ts template")?;
 
     Ok(Bindings {
         package_json_contents,
-        sys_template_contents,
+        sys_ts_template_contents: sys_template_contents,
         node_ts_file_contents,
+        index_ts_file_contents,
     })
 }

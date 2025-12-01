@@ -59,14 +59,17 @@ impl BindingGenerator for NodeBindingGenerator {
     ) -> Result<()> {
         for uniffi_bindgen::Component { ci, config: _, .. } in components {
             let sys_ts_main_file_name = format!("{}-sys", ci.namespace().to_kebab_case());
+            let node_ts_main_file_name = format!("{}-node", ci.namespace().to_kebab_case());
 
             let Bindings {
                 package_json_contents,
-                sys_template_contents,
+                sys_ts_template_contents,
                 node_ts_file_contents,
+                index_ts_file_contents,
             } = generate_node_bindings(
                 &ci,
                 sys_ts_main_file_name.as_str(),
+                node_ts_main_file_name.as_str(),
                 self.out_dirname_api.clone(),
                 self.out_disable_auto_loading_lib,
                 self.out_import_extension.clone(),
@@ -75,11 +78,14 @@ impl BindingGenerator for NodeBindingGenerator {
             let package_json_path = settings.out_dir.join("package.json");
             write_with_dirs(&package_json_path, package_json_contents)?;
 
-            let node_ts_file_path = settings.out_dir.join(format!("{}-node.ts", ci.namespace().to_kebab_case()));
+            let node_ts_file_path = settings.out_dir.join(format!("{node_ts_main_file_name}.ts"));
             write_with_dirs(&node_ts_file_path, node_ts_file_contents)?;
 
             let sys_template_path = settings.out_dir.join(format!("{sys_ts_main_file_name}.ts"));
-            write_with_dirs(&sys_template_path, sys_template_contents)?;
+            write_with_dirs(&sys_template_path, sys_ts_template_contents)?;
+
+            let index_template_path = settings.out_dir.join("index.ts");
+            write_with_dirs(&index_template_path, index_ts_file_contents)?;
         }
 
         Ok(())
