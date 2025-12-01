@@ -147,7 +147,7 @@ class UniffiFfiRsRustCaller {
 function uniffiCheckCallStatus(
   callStatus: UniffiRustCallStatusStruct,
   liftString: (bytes: UniffiByteArray) => string,
-  listError?: (buffer: UniffiByteArray) => Error,
+  liftError?: (buffer: UniffiByteArray) => Error,
 ) {
   switch (callStatus.code) {
     case CALL_SUCCESS:
@@ -160,8 +160,8 @@ function uniffiCheckCallStatus(
         const struct = new UniffiRustBufferValue(callStatus.error_buf);
         const errorBufBytes = struct.consumeIntoUint8Array();
 
-        if (listError) {
-          throw listError(errorBufBytes);
+        if (liftError) {
+          throw liftError(errorBufBytes);
         }
       }
       throw new UniffiInternalError.UnexpectedRustCallError();
