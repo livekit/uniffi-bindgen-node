@@ -104,9 +104,14 @@
         {% if out_verbose_logs -%}console.log('{{ func_def.ffi_func().name() }} async cancel:');{%- endif %}
         return FFI_DYNAMIC_LIB.{{ func_def.ffi_rust_future_cancel(ci) }}([handle])
       },
-      /*completeFunc:*/ (handle, callStatus) => {
+      /*completeFunc:*/ (handle, callStatusWithIncorrectType) => {
         {% if out_verbose_logs -%}console.log('{{ func_def.ffi_func().name() }} async complete:');{%- endif %}
-        return FFI_DYNAMIC_LIB.{{ func_def.ffi_rust_future_complete(ci) }}([handle, callStatus])
+        // FIXME: because of the `rustCaller:` type assertion happening above, the type of the
+        // callStatus value is incorrect. It should be `JsExternal`, but is being typed as
+        // `UniffiRustCallStatus`. So, hack around it here. Longer term figure out a way to
+        // reabstract this to not rely so tightly on the UBRN helper library maybe?
+        const callStatus = callStatusWithIncorrectType as unknown as JsExternal;
+        return FFI_DYNAMIC_LIB.{{ func_def.ffi_rust_future_complete(ci) }}([handle, callStatus]);
       },
       /*freeFunc:*/ (handle) => {
         {% if out_verbose_logs -%}console.log('{{ func_def.ffi_func().name() }} async free:');{%- endif %}
