@@ -22,7 +22,7 @@
         return;
       }
 
-      console.log("async cleanup last poll callback pointer");
+      {% if out_verbose_logs -%}console.log("async cleanup last poll callback pointer");{%- endif -%}
       freePointer({
         paramsType: [funcConstructor({
             paramsType: [DataType.U64, /* i8 */ DataType.U8],
@@ -44,7 +44,7 @@
       // doesn't support.
       /*rustCaller:*/ uniffiCaller as unknown as UniffiRustCaller<UniffiRustCallStatus>,
       /*rustFutureFunc:*/ () => {
-        console.log("{{ func_def.ffi_func().name() }} async call starting...");
+        {% if out_verbose_logs -%}console.log("{{ func_def.ffi_func().name() }} async call starting...");{%- endif -%}
         const returnedHandle = FFI_DYNAMIC_LIB.{{ func_def.ffi_func().name() }}([
           {% if let Some(self_type) = func_def.self_type() -%}
             {{ associated_object_name | typescript_ffi_object_factory_name }}.clonePointer(this)
@@ -61,20 +61,20 @@
             callStatus
           {%- endif %}
         ]);
-        console.log("{{ func_def.ffi_func().name() }} returned handle:", returnedHandle);
+        {% if out_verbose_logs -%}console.log("{{ func_def.ffi_func().name() }} returned handle:", returnedHandle);{%- endif -%}
         return returnedHandle;
       },
       /*pollFunc:*/ (handle, callback, callbackData) => {
         cleanupLastPollCallbackPointer();
 
-        console.log("{{ func_def.ffi_func().name() }} async poll:", handle, callback, callbackData);
+        {% if out_verbose_logs -%}console.log("{{ func_def.ffi_func().name() }} async poll:", handle, callback, callbackData);{%- endif -%}
         const wrappedCallback = (callbackData: bigint, pollCodeRaw: number) => {
           // NOTE: ffi-rs doesn't support a DataType.I8 value under the hood, so instead `pollCode`
           // is being returned as a DataType.U8 as it is the same byte size. The below code
           // does the conversion from U8 -> I8.
           const pollCode = ((pollCodeRaw & 0b10000000) > 0 ? -1 : 1) * (pollCodeRaw & 0x01111111);
 
-          console.log('{{ func_def.ffi_func().name() }} async poll callback fired with:', callbackData, pollCode);
+          {% if out_verbose_logs -%}console.log('{{ func_def.ffi_func().name() }} async poll callback fired with:', callbackData, pollCode);{%- endif -%}
           callback(
             BigInt(callbackData), /* FIXME: why must I convert callbackData from number -> bigint here? It looks like even though it is typed as DataType.U64 callbackData is passed as a number? */
             pollCode,
@@ -95,19 +95,18 @@
           unwrapped,
           Number(callbackData) /* FIXME: why must I convert callbackData from bigint -> number here for the ffi call to succeed? */
         ]);
-        console.log('{{ func_def.ffi_func().name() }} async poll done');
-        // setTimeout(() => { console.log('settimeout complete')}, 5000);
+        {% if out_verbose_logs -%}console.log('{{ func_def.ffi_func().name() }} async poll done');{%- endif -%}
       },
       /*cancelFunc:*/ (handle) => {
-        console.log('{{ func_def.ffi_func().name() }} async cancel:');
+        {% if out_verbose_logs -%}console.log('{{ func_def.ffi_func().name() }} async cancel:');{%- endif -%}
         return FFI_DYNAMIC_LIB.{{ func_def.ffi_rust_future_cancel(ci) }}([handle])
       },
       /*completeFunc:*/ (handle, callStatus) => {
-        console.log('{{ func_def.ffi_func().name() }} async complete:');
+        {% if out_verbose_logs -%}console.log('{{ func_def.ffi_func().name() }} async complete:');{%- endif -%}
         return FFI_DYNAMIC_LIB.{{ func_def.ffi_rust_future_complete(ci) }}([handle, callStatus])
       },
       /*freeFunc:*/ (handle) => {
-        console.log('{{ func_def.ffi_func().name() }} async free:');
+        {% if out_verbose_logs -%}console.log('{{ func_def.ffi_func().name() }} async free:');{%- endif -%}
         cleanupLastPollCallbackPointer();
         return FFI_DYNAMIC_LIB.{{ func_def.ffi_rust_future_free(ci) }}([handle])
       },
@@ -139,7 +138,7 @@
           let {{ arg.name() | typescript_argument_var_name }} = {{ arg.name() | typescript_var_name | typescript_ffi_converter_lower_with(arg.as_type().borrow()) }};
         {% endfor -%}
 
-        console.log("{{ func_def.ffi_func().name() }} call starting...");
+        {% if out_verbose_logs -%}console.log("{{ func_def.ffi_func().name() }} call starting...");{%- endif -%}
         const returnValue = FFI_DYNAMIC_LIB.{{ func_def.ffi_func().name() }}([
           {% if let Some(self_type) = func_def.self_type() -%}
             {{ associated_object_name | typescript_ffi_object_factory_name }}.clonePointer(this)
@@ -156,7 +155,7 @@
             callStatus
           {%- endif %}
         ]);
-        console.log("{{ func_def.ffi_func().name() }} return value:", returnValue{%- if func_def.ffi_func().has_rust_call_status_arg() -%}, 'Call status:', callStatus{%- endif -%});
+        {% if out_verbose_logs -%}console.log("{{ func_def.ffi_func().name() }} return value:", returnValue{%- if func_def.ffi_func().has_rust_call_status_arg() -%}, 'Call status:', callStatus{%- endif -%});{%- endif -%}
 
         return returnValue;
       },
