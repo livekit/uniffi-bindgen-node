@@ -68,17 +68,17 @@
         cleanupLastPollCallbackPointer();
 
         {% if out_verbose_logs -%}console.log("{{ func_def.ffi_func().name() }} async poll:", handle, callback, callbackData);{%- endif %}
-        const wrappedCallback = (callbackData: bigint, pollCodeRaw: number) => {
+        const wrappedCallback = (
+          callbackData: number /* FIXME: this should be bigint, but ffi-rs seems to pass a number here instead? Investigate this. */,
+          pollCodeRaw: number,
+        ) => {
           // NOTE: ffi-rs doesn't support a DataType.I8 value under the hood, so instead `pollCode`
           // is being returned as a DataType.U8 as it is the same byte size. The below code
           // does the conversion from U8 -> I8.
           const pollCode = ((pollCodeRaw & 0b10000000) > 0 ? -1 : 1) * (pollCodeRaw & 0x01111111);
 
           {% if out_verbose_logs -%}console.log('{{ func_def.ffi_func().name() }} async poll callback fired with:', callbackData, pollCode);{%- endif %}
-          callback(
-            BigInt(callbackData), /* FIXME: why must I convert callbackData from number -> bigint here? It looks like even though it is typed as DataType.U64 callbackData is passed as a number? */
-            pollCode,
-          );
+          callback(BigInt(callbackData), pollCode);
         };
         const callbackExternal = createPointer({
           paramsType: [funcConstructor({
@@ -93,7 +93,10 @@
         FFI_DYNAMIC_LIB.{{ func_def.ffi_rust_future_poll(ci) }}([
           handle,
           unwrapped,
-          Number(callbackData) /* FIXME: why must I convert callbackData from bigint -> number here for the ffi call to succeed? */
+          // FIXME: the below should be able to passed through as a bigint, but ffi-rs doesn't seem
+          // to be able to handle a bigint here even though this arg is a DataType.U64?
+          // Investigate this - right now this hack could result in inadvertant precision loss.
+          Number(callbackData) as unknown as bigint,
         ]);
         {% if out_verbose_logs -%}console.log('{{ func_def.ffi_func().name() }} async poll done');{%- endif %}
       },
