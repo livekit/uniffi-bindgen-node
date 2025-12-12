@@ -75,7 +75,7 @@
           // NOTE: ffi-rs doesn't support a DataType.I8 value under the hood, so instead `pollCode`
           // is being returned as a DataType.U8 as it is the same byte size. The below code
           // does the conversion from U8 -> I8.
-          const pollCode = ((pollCodeRaw & 0b10000000) > 0 ? -1 : 1) * (pollCodeRaw & 0x01111111);
+          const pollCode = ((pollCodeRaw & 0b10000000) > 0 ? -1 : 1) * (pollCodeRaw & 0b01111111);
 
           {% if out_verbose_logs -%}console.log('{{ func_def.ffi_func().name() }} async poll callback fired with:', callbackData, pollCode);{%- endif %}
           callback(BigInt(callbackData), pollCode);
