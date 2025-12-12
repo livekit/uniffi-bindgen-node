@@ -274,7 +274,13 @@ export type {{ record_def.name() | typescript_class_name }} = {
   {%- for field_def in record_def.fields() -%}
     {% call ts::docstring(field_def, 0) %}
     {%- let type_ = field_def.as_type() %}
-    {{field_def.name() | typescript_var_name}}: {{field_def | typescript_type_name}};
+
+    {%- match field_def.as_type() -%}
+    {%- when Type::Optional { inner_type } -%}
+      {{field_def.name() | typescript_var_name}}?: {{inner_type | typescript_type_name}};
+    {%- else -%}
+      {{field_def.name() | typescript_var_name}}: {{field_def | typescript_type_name}};
+    {%- endmatch -%}
   {%- endfor %}
 }
 
