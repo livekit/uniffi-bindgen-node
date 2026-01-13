@@ -16,10 +16,10 @@ dynamic library file and call the relevant operations.
 > - Async function calling
 > - Enums (both bare enums and enums with associated fields)
 > - Objects (multiple constructors, async + regular method calling)
+> - Error enums / exceptions
 > 
 > Currently missing features:
 > - Traits (including node -> rust function calls support)
-> - Error enums / exceptions
 > - Any sort of comprehensive test suite
 
 ## Differences from `uniffi-bindgen-react-native`
