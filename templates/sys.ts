@@ -148,7 +148,7 @@ class UniffiFfiRsRustCaller {
 function uniffiCheckCallStatus<ErrorEnumAndVariant extends [string, string]>(
   callStatus: UniffiRustCallStatusStruct,
   liftString: (bytes: UniffiByteArray) => string,
-  liftError?: (buffer: UniffiByteArray) => [string, string],
+  liftError?: (buffer: UniffiByteArray) => ErrorEnumAndVariant,
 ) {
   switch (callStatus.code) {
     case CALL_SUCCESS:
