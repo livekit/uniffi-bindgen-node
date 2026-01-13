@@ -37,6 +37,7 @@ struct SysTemplate<'ci> {
 
     out_dirname_api: DirnameApi,
     out_disable_auto_loading_lib: bool,
+    out_verbose_logs: bool,
 }
 
 impl<'ci> SysTemplate<'ci> {
@@ -44,8 +45,9 @@ impl<'ci> SysTemplate<'ci> {
         ci: &'ci ComponentInterface,
         out_dirname_api: DirnameApi,
         out_disable_auto_loading_lib: bool,
+        out_verbose_logs: bool,
     ) -> Self {
-        Self { ci, out_dirname_api, out_disable_auto_loading_lib }
+        Self { ci, out_dirname_api, out_disable_auto_loading_lib, out_verbose_logs }
     }
 }
 
@@ -111,7 +113,7 @@ pub fn generate_node_bindings(
     out_verbose_logs: bool,
 ) -> Result<Bindings> {
     let package_json_contents = PackageJsonTemplate::new(ci, out_node_version).render().context("failed to render package.json template")?;
-    let sys_template_contents = SysTemplate::new(ci, out_dirname_api, out_disable_auto_loading_lib).render().context("failed to render sys.ts template")?;
+    let sys_template_contents = SysTemplate::new(ci, out_dirname_api, out_disable_auto_loading_lib, out_verbose_logs).render().context("failed to render sys.ts template")?;
     let node_ts_file_contents = NodeTsTemplate::new(ci, sys_ts_main_file_name, out_import_extension.clone(), out_verbose_logs).render().context("failed to render node.ts template")?;
     let index_ts_file_contents = IndexTsTemplate::new(node_ts_main_file_name, sys_ts_main_file_name, out_import_extension, out_disable_auto_loading_lib).render().context("failed to render index.ts template")?;
 

@@ -309,7 +309,7 @@ export class UniffiRustBufferValue {
   }
 
   destroy() {
-    console.log('Rust buffer destroy called', this.struct)
+    {% if out_verbose_logs -%}console.log('Rust buffer destroy called', this.struct);{%- endif %}
     if (!this.struct) {
       throw new Error('Error destroying UniffiRustBufferValue - already previously destroyed! Double freeing is not allowed.');
     }
