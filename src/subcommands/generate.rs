@@ -61,15 +61,6 @@ pub struct GenerateSubcommandArgs {
     #[arg(long, value_enum, default_value_t=OutputDirnameApi::default())]
     out_dirname_api: OutputDirnameApi,
 
-    /// If specified, the dylib/so/dll native dependency won't be automatically loaded
-    /// when the bindgen is imported. If this flag is set, explicit `uniffiLoad` / `uniffiUnload`
-    /// will be exported from the generated package which must be called before any uniffi calls
-    /// are made.
-    ///
-    /// Use this if you want to only load a bindgen sometimes (ie, it is an optional dependency).
-    #[arg(long, action)]
-    out_disable_auto_load_lib: bool,
-
     /// Changes the extension used in `import`s within the final generated output. This exists
     /// because depending on packaging / tsc configuration, the import path extensions may be
     /// expected to end in different extensions. For example, tsc often requires .js extensions
@@ -81,6 +72,15 @@ pub struct GenerateSubcommandArgs {
     /// the built output. By default, this is "^18".
     #[arg(long, default_value = "^18")]
     out_node_version: String,
+
+    /// If specified, the dylib/so/dll native dependency won't be automatically loaded
+    /// when the bindgen is imported. If this flag is set, explicit `uniffiLoad` / `uniffiUnload`
+    /// will be exported from the generated package which must be called before any uniffi calls
+    /// are made.
+    ///
+    /// Use this if you want to only load a bindgen sometimes (ie, it is an optional dependency).
+    #[arg(long, action)]
+    out_lib_disable_auto_load: bool,
 
     /// If passed, adds verbose logging to the bindgen output, which is helpful for debugging
     /// issues in the bindgne itself.
@@ -101,7 +101,7 @@ pub fn run(args: GenerateSubcommandArgs) -> Result<()> {
     };
     let node_binding_generator = bindings::NodeBindingGenerator::new(
         args.out_dirname_api.into(),
-        args.out_disable_auto_load_lib,
+        args.out_lib_disable_auto_load,
         args.out_import_extension.into(),
         args.out_node_version.as_str(),
         args.out_verbose_logs,

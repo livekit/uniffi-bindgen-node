@@ -30,7 +30,7 @@ const CALL_SUCCESS = 0, CALL_ERROR = 1, CALL_UNEXPECTED_ERROR = 2, CALL_CANCELLE
 let libraryLoaded = false;
 /**
  * Loads the dynamic library from disk into memory.
- * {% if out_disable_auto_loading_lib -%}NOTE: this must be called before any other functions in this module are called.{%- endif %}
+ * {% if out_lib_disable_auto_loading -%}NOTE: this must be called before any other functions in this module are called.{%- endif %}
  */
 function _uniffiLoad() {
   const library = "lib{{ ci.crate_name() }}";
@@ -66,7 +66,7 @@ function _checkUniffiLoaded() {
   }
 }
 
-{% if out_disable_auto_loading_lib %}
+{% if out_lib_disable_auto_loading %}
 export { _uniffiLoad as uniffiLoad, _uniffiUnload as uniffiUnload };
 {% else %}
 _uniffiLoad();

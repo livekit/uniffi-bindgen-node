@@ -15,7 +15,7 @@ use crate::{bindings::generator::{generate_node_bindings, Bindings}, utils::writ
 
 pub struct NodeBindingGenerator {
     out_dirname_api: utils::DirnameApi,
-    out_disable_auto_loading_lib: bool,
+    out_lib_disable_auto_loading: bool,
     out_import_extension: utils::ImportExtension,
     out_node_version: String,
     out_verbose_logs: bool,
@@ -24,14 +24,14 @@ pub struct NodeBindingGenerator {
 impl NodeBindingGenerator {
     pub fn new(
         out_dirname_api: utils::DirnameApi,
-        out_disable_auto_loading_lib: bool,
+        out_lib_disable_auto_loading: bool,
         out_import_extension: utils::ImportExtension,
         out_node_version: &str,
         out_verbose_logs: bool,
     ) -> Self {
         Self {
             out_dirname_api,
-            out_disable_auto_loading_lib,
+            out_lib_disable_auto_loading,
             out_import_extension,
             out_node_version: out_node_version.into(),
             out_verbose_logs,
@@ -81,7 +81,7 @@ impl BindingGenerator for NodeBindingGenerator {
                 sys_ts_main_file_name.as_str(),
                 node_ts_main_file_name.as_str(),
                 self.out_dirname_api.clone(),
-                self.out_disable_auto_loading_lib,
+                self.out_lib_disable_auto_loading,
                 self.out_import_extension.clone(),
                 self.out_node_version.as_str(),
                 self.out_verbose_logs,
