@@ -40,13 +40,51 @@ function _uniffiLoad() {
     console.warn("Unsupported platform:", platform);
     ext = "so";
   }
-  {% match out_dirname_api %}
-  {% when DirnameApi::Dirname %}
-  const libraryDirectory = __dirname;
-  {% when DirnameApi::ImportMetaUrl %}
-  const libraryDirectory = dirname(fileURLToPath(import.meta.url));
+
+  {% match out_dirname_api -%}
+    {%- when DirnameApi::Dirname -%}
+      const libraryDirectory = __dirname;
+    {%- when DirnameApi::ImportMetaUrl -%}
+      const libraryDirectory = dirname(fileURLToPath(import.meta.url));
+  {%- endmatch %}
+
+  // Get the path to the lib to load
+  {% match out_lib_path -%}
+    {%- when LibPath::Omitted -%}
+      const libraryPath = join(libraryDirectory, `${library}.${ext}`);
+
+    {% when LibPath::Literal(literal) %}
+      {%- if literal.is_absolute() -%}
+        const libraryPath = "{{ literal }}";
+      {%- else -%}
+        const libraryPath = join(libraryDirectory, "{{ literal }}");
+      {%- endif -%}
+
+    {% when LibPath::Modules(mods) %}
+      let libPathModule;
+
+      {%- for switch_token in mods.as_switch_tokens() -%}
+        {% match switch_token -%}
+        {% when LibPathSwitchToken::Switch(value) -%}
+          switch ({{ value }}) {
+        {% when LibPathSwitchToken::Case(value) -%}
+          case "{{value}}":
+        {% when LibPathSwitchToken::EndSwitch(_value) -%}
+          }
+        {% when LibPathSwitchToken::Value(value) -%}
+            try {
+              libPathModule = require("{{ value }}");
+            } catch (_e) {}
+        {%- endmatch -%}
+      {%- endfor -%}
+
+      if (!libPathModule) {
+        throw new Error("Error resolving bindgen module!");
+      }
+      const libraryPath = libPathModule.default().path;
+
   {% endmatch %}
-  const libraryPath = join(libraryDirectory, `${library}.${ext}`);
+
   open({ library, path: libraryPath });
   libraryLoaded = true;
 }
