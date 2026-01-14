@@ -62,6 +62,7 @@ function _uniffiLoad() {
 
     {% when LibPath::Modules(mods) %}
       let libPathModule;
+      let libPathModuleLastResolutionError;
 
       {%- for switch_token in mods.as_switch_tokens() -%}
         {% match switch_token -%}
@@ -72,14 +73,16 @@ function _uniffiLoad() {
         {% when LibPathSwitchToken::EndSwitch(_value) -%}
           }
         {% when LibPathSwitchToken::Value(value) -%}
-            try {
-              libPathModule = require("{{ value }}");
-            } catch (_e) {}
+            if (!libPathModule) {
+              try {
+                libPathModule = require("{{ value }}");
+              } catch (e) { libPathModuleLastResolutionError = e; }
+            }
         {%- endmatch -%}
       {%- endfor -%}
 
       if (!libPathModule) {
-        throw new Error("Error resolving bindgen module!");
+        throw new Error(`Error resolving bindgen module! ${libPathModuleLastResolutionError}`);
       }
       const libraryPath = libPathModule.default().path;
 
