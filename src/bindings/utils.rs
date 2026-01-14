@@ -116,6 +116,13 @@ impl LibPathModules {
         }
         tokens.push(LibPathSwitchToken::EndSwitch(*first_dimension));
 
+        // Finish the tokens list with any entries that don't have associated filters
+        tokens.extend(
+            self.0.iter()
+                .filter(|module_entry| module_entry.filters.is_empty())
+                .map(|module_entry| LibPathSwitchToken::Value(module_entry.require_path.clone()))
+        );
+
         tokens
     }
 
