@@ -17,12 +17,13 @@ pub enum Subcommands {
 
     /// Generates a template for a npm package that encapsulates a built dll / dylib / dll.
     ///
-    /// The module exports two keys - "triple" mapping to the built rust triple the package
-    /// represents, and "path" containing an absolute path to the dll / dylib / so that is included
-    /// in the package. Typescript definitions are also included. ie:
+    /// The module has a default export of a function, which when called returns an object with two keys:
+    /// - "triple" mapping to the built rust triple the package represents
+    /// - "path" containing an absolute path to the dll / dylib / so that is included in the package.
+    /// Typescript definitions are also included. ie:
     ///
-    /// > require('./example-native-package')
-    /// [Module: null prototype] {
+    /// > require('./example-native-package').default()
+    /// {
     ///   path: '/path/to/example-native-package/src/libplugins_ai_coustics_uniffi.dylib',
     ///   triple: 'aarch64-apple-darwin'
     /// }

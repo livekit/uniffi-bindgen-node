@@ -63,17 +63,17 @@ pub fn run(args: PublishingScaffoldNativePackageSubcommandArgs) -> Result<()> {
 
     for (filename, contents) in [
         ("index.cjs", format!(
-            r#"module.exports = {{ triple: "{}", path: require("path").join(__dirname, "{}") }};"#,
+            r#"module.exports.default = () => ({{ triple: "{}", path: require("path").join(__dirname, "{}") }});"#,
             args.lib_triple,
             lib_source_filename,
         )),
         ("index.mjs", format!(
-            r#"import {{ join, dirname }} from "path"; import {{ fileURLToPath }} from "url"; export const triple = "{}"; export const path = join(dirname(fileURLToPath(import.meta.url)), "{}");"#,
+            r#"import {{ join, dirname }} from "path"; import {{ fileURLToPath }} from "url"; export default () => ({{ triple: "{}", path: join(dirname(fileURLToPath(import.meta.url)), "{}") }});"#,
             args.lib_triple,
             lib_source_filename,
         )),
         ("index.d.ts", format!(
-            r#"declare const triple: "{}"; declare const path: string; export {{ triple, path }};"#,
+            r#"declare function dlibFn(): {{ triple: "{}", path: string }}; export default dlibFn;"#,
             args.lib_triple,
         )),
     ] {
