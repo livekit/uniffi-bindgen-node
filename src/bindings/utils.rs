@@ -59,10 +59,10 @@ impl LibPath {
             Self::Modules(LibPathModules(mods.into_iter().enumerate().map(|(index, require_path)| {
                 let mut module = LibPathModule::new(require_path.as_str());
                 if let Some(platform) = platform_values.iter().nth(index).cloned() {
-                    module = module.with_filter("platform", platform);
+                    module = module.with_filter("process.platform", platform);
                 };
                 if let Some(arch) = arch_values.iter().nth(index).cloned() {
-                    module = module.with_filter("arch", arch);
+                    module = module.with_filter("process.arch", arch);
                 };
 
                 module
