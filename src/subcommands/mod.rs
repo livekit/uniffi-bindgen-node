@@ -14,10 +14,27 @@ pub enum Subcommands {
     /// This is probably the subcommand you want if you are just getting started.
     #[command(verbatim_doc_comment)]
     Generate(generate::GenerateSubcommandArgs),
+
+    /// Generates a template for a npm package that encapsulates a built dll / dylib / dll.
+    ///
+    /// The module exports two keys - "triple" mapping to the built rust triple the package
+    /// represents, and "path" containing an absolute path to the dll / dylib / so that is included
+    /// in the package. Typescript definitions are also included. ie:
+    ///
+    /// > require('./example-native-package')
+    /// [Module: null prototype] {
+    ///   path: '/path/to/example-native-package/src/libplugins_ai_coustics_uniffi.dylib',
+    ///   triple: 'aarch64-apple-darwin'
+    /// }
+    ///
+    /// Only intended for use when publishing package to npm for distribution.
+    #[command(verbatim_doc_comment)]
+    PublishingScaffoldNativePackage(publishing_scaffold_native_package::PublishingScaffoldNativePackageSubcommandArgs),
 }
 
 pub fn run(command: Subcommands) -> Result<()> {
     match command {
         Subcommands::Generate(args) => generate::run(args),
+        Subcommands::PublishingScaffoldNativePackage(args) => publishing_scaffold_native_package::run(args),
     }
 }
