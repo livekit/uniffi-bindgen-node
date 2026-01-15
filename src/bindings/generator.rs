@@ -23,11 +23,12 @@ pub struct Bindings {
 struct PackageJsonTemplate<'ci> {
     ci: &'ci ComponentInterface,
     out_node_version: String,
+    out_lib_path: LibPath,
 }
 
 impl<'ci> PackageJsonTemplate<'ci> {
-    pub fn new(ci: &'ci ComponentInterface, out_node_version: &str) -> Self {
-        Self { ci, out_node_version: out_node_version.into() }
+    pub fn new(ci: &'ci ComponentInterface, out_node_version: &str, out_lib_path: LibPath) -> Self {
+        Self { ci, out_node_version: out_node_version.into(), out_lib_path }
     }
 }
 
@@ -138,7 +139,7 @@ pub fn generate_node_bindings(
     out_verbose_logs: bool,
     out_lib_path: LibPath,
 ) -> Result<Bindings> {
-    let package_json_contents = PackageJsonTemplate::new(ci, out_node_version).render().context("failed to render package.json template")?;
+    let package_json_contents = PackageJsonTemplate::new(ci, out_node_version, out_lib_path.clone()).render().context("failed to render package.json template")?;
     let sys_ts_template_contents = SysTemplate::new(ci, out_dirname_api, out_lib_disable_auto_loading, out_verbose_logs, out_lib_path.clone(), commonjs_shim_cjs_main_file_name).render().context("failed to render sys.ts template")?;
     let commonjs_shim_cjs_template_contents = CommonJsShimTemplate::new(out_lib_path).render().context("failed to render commonjs_shim.ts template")?;
     let node_ts_file_contents = NodeTsTemplate::new(ci, sys_ts_main_file_name, out_import_extension.clone(), out_verbose_logs).render().context("failed to render node.ts template")?;

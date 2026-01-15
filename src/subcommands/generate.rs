@@ -109,6 +109,9 @@ pub struct GenerateSubcommandArgs {
     #[arg(long, value_parser, default_value=None, conflicts_with="out_lib_path_literal")]
     out_lib_path_module_arch: Option<Vec<String>>,
 
+    #[arg(long, value_parser, default_value=None, conflicts_with="out_lib_path_literal")]
+    out_lib_path_module_optional_dependency_version: Option<Vec<String>>,
+
     /// If passed, adds verbose logging to the bindgen output, which is helpful for debugging
     /// issues in the bindgne itself.
     #[arg(long, action)]
@@ -137,6 +140,7 @@ pub fn run(args: GenerateSubcommandArgs) -> Result<()> {
             args.out_lib_path_module,
             args.out_lib_path_module_platform,
             args.out_lib_path_module_arch,
+            args.out_lib_path_module_optional_dependency_version,
         ),
     );
 

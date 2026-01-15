@@ -21,16 +21,25 @@ pub enum ImportExtension {
 
 #[derive(Debug, Clone)]
 pub struct LibPathModule {
-    require_path: String,
-    filters: HashMap<&'static str, String>,
+    pub require_path: String,
+    pub optional_dependency_version: Option<String>,
+    pub filters: HashMap<&'static str, String>,
 }
 
 impl LibPathModule {
     pub fn new(require_path: &str) -> Self {
-        Self { require_path: require_path.into(), filters: Default::default() }
+        Self {
+            require_path: require_path.into(),
+            filters: Default::default(),
+            optional_dependency_version: None,
+        }
     }
     pub fn with_filter(mut self, filter_key: &'static str, filter_value: String) -> Self {
         self.filters.insert(filter_key, filter_value);
+        self
+    }
+    pub fn with_optional_dependency_version(mut self, optional_dependency_version: String) -> Self {
+        self.optional_dependency_version = Some(optional_dependency_version);
         self
     }
 }
@@ -48,6 +57,7 @@ impl LibPath {
         out_lib_path_module: Option<Vec<String>>,
         out_lib_path_module_platform: Option<Vec<String>>,
         out_lib_path_module_arch: Option<Vec<String>>,
+        out_lib_path_module_optional_dependency_version: Option<Vec<String>>,
     ) -> Self {
         if let Some(value) = out_lib_path_literal {
             return Self::Literal(value);
@@ -55,9 +65,13 @@ impl LibPath {
         } else if let Some(mods) = out_lib_path_module {
             let platform_values = out_lib_path_module_platform.unwrap_or(vec![]);
             let arch_values = out_lib_path_module_arch.unwrap_or(vec![]);
+            let optional_dependency_versions = out_lib_path_module_optional_dependency_version.unwrap_or(vec![]);
 
             Self::Modules(LibPathModules(mods.into_iter().enumerate().map(|(index, require_path)| {
                 let mut module = LibPathModule::new(require_path.as_str());
+                if let Some(opt_dep) = optional_dependency_versions.iter().nth(index).cloned() {
+                    module = module.with_optional_dependency_version(opt_dep);
+                };
                 if let Some(platform) = platform_values.iter().nth(index).cloned() {
                     module = module.with_filter("process.platform", platform);
                 };
@@ -129,6 +143,17 @@ impl LibPathModules {
     pub fn as_switch_tokens(&self) -> Vec<LibPathSwitchToken<String>> {
         let keys = self.0.iter().flat_map(|module| module.filters.keys()).map(|key| *key).collect::<HashSet<_>>();
         self.as_switch_tokens_by(keys.into_iter().collect())
+    }
+
+    pub fn optional_dependencies(&self) -> HashMap<String, String> {
+        self.0
+            .iter()
+            .filter_map(|m| {
+                m.optional_dependency_version
+                    .clone()
+                    .map(|d| (m.require_path.clone(), d))
+            })
+            .collect::<HashMap<_, _>>()
     }
 }
 
