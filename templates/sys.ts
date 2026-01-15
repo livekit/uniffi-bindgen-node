@@ -23,6 +23,10 @@ import {
   uniffiCreateFfiConverterString,
   UniffiError,
 } from 'uniffi-bindgen-react-native';
+{% if let LibPath::Modules(_) = out_lib_path %}
+import { getLibPathModule } from './{{ commonjs_shim_cjs_main_file_name }}.cjs';
+{% endif %}
+
 
 const CALL_SUCCESS = 0, CALL_ERROR = 1, CALL_UNEXPECTED_ERROR = 2, CALL_CANCELLED = 3;
 
@@ -60,31 +64,8 @@ function _uniffiLoad() {
         const libraryPath = join(libraryDirectory, "{{ literal }}");
       {%- endif -%}
 
-    {% when LibPath::Modules(mods) %}
-      let libPathModule;
-      let libPathModuleLastResolutionError;
-
-      {%- for switch_token in mods.as_switch_tokens() -%}
-        {% match switch_token -%}
-        {% when LibPathSwitchToken::Switch(value) -%}
-          switch ({{ value }}) {
-        {% when LibPathSwitchToken::Case(value) -%}
-          case "{{value}}":
-        {% when LibPathSwitchToken::EndSwitch(_value) -%}
-          }
-        {% when LibPathSwitchToken::Value(value) -%}
-            if (!libPathModule) {
-              try {
-                libPathModule = require("{{ value }}");
-              } catch (e) { libPathModuleLastResolutionError = e; }
-            }
-        {%- endmatch -%}
-      {%- endfor -%}
-
-      if (!libPathModule) {
-        throw new Error(`Error resolving bindgen module! ${libPathModuleLastResolutionError}`);
-      }
-      const libraryPath = libPathModule.default().path;
+    {% when LibPath::Modules(_) %}
+      const libraryPath = (getLibPathModule() as { triple: string, path: string }).path;
 
   {% endmatch %}
 

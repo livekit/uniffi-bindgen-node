@@ -13,6 +13,7 @@ use crate::bindings::{filters, utils::{DirnameApi, ImportExtension, LibPath, Lib
 pub struct Bindings {
     pub package_json_contents: String,
     pub sys_ts_template_contents: String,
+    pub commonjs_shim_cjs_template_contents: String,
     pub node_ts_file_contents: String,
     pub index_ts_file_contents: String,
 }
@@ -39,6 +40,7 @@ struct SysTemplate<'ci> {
     out_lib_disable_auto_loading: bool,
     out_verbose_logs: bool,
     out_lib_path: LibPath,
+    commonjs_shim_cjs_main_file_name: String,
 }
 
 impl<'ci> SysTemplate<'ci> {
@@ -48,6 +50,7 @@ impl<'ci> SysTemplate<'ci> {
         out_lib_disable_auto_loading: bool,
         out_verbose_logs: bool,
         out_lib_path: LibPath,
+        commonjs_shim_cjs_main_file_name: &str,
     ) -> Self {
         Self {
             ci,
@@ -55,7 +58,20 @@ impl<'ci> SysTemplate<'ci> {
             out_lib_disable_auto_loading,
             out_verbose_logs,
             out_lib_path,
+            commonjs_shim_cjs_main_file_name: commonjs_shim_cjs_main_file_name.into(),
         }
+    }
+}
+
+#[derive(Template)]
+#[template(escape = "none", path = "commonjs-shim.cjs")]
+struct CommonJsShimTemplate {
+    out_lib_path: LibPath,
+}
+
+impl CommonJsShimTemplate {
+    pub fn new(out_lib_path: LibPath) -> Self {
+        Self { out_lib_path }
     }
 }
 
@@ -114,6 +130,7 @@ pub fn generate_node_bindings(
     ci: &ComponentInterface,
     sys_ts_main_file_name: &str,
     node_ts_main_file_name: &str,
+    commonjs_shim_cjs_main_file_name: &str,
     out_dirname_api: DirnameApi,
     out_lib_disable_auto_loading: bool,
     out_import_extension: ImportExtension,
@@ -122,13 +139,15 @@ pub fn generate_node_bindings(
     out_lib_path: LibPath,
 ) -> Result<Bindings> {
     let package_json_contents = PackageJsonTemplate::new(ci, out_node_version).render().context("failed to render package.json template")?;
-    let sys_template_contents = SysTemplate::new(ci, out_dirname_api, out_lib_disable_auto_loading, out_verbose_logs, out_lib_path).render().context("failed to render sys.ts template")?;
+    let sys_ts_template_contents = SysTemplate::new(ci, out_dirname_api, out_lib_disable_auto_loading, out_verbose_logs, out_lib_path.clone(), commonjs_shim_cjs_main_file_name).render().context("failed to render sys.ts template")?;
+    let commonjs_shim_cjs_template_contents = CommonJsShimTemplate::new(out_lib_path).render().context("failed to render commonjs_shim.ts template")?;
     let node_ts_file_contents = NodeTsTemplate::new(ci, sys_ts_main_file_name, out_import_extension.clone(), out_verbose_logs).render().context("failed to render node.ts template")?;
     let index_ts_file_contents = IndexTsTemplate::new(node_ts_main_file_name, sys_ts_main_file_name, out_import_extension, out_lib_disable_auto_loading).render().context("failed to render index.ts template")?;
 
     Ok(Bindings {
         package_json_contents,
-        sys_ts_template_contents: sys_template_contents,
+        sys_ts_template_contents,
+        commonjs_shim_cjs_template_contents,
         node_ts_file_contents,
         index_ts_file_contents,
     })

@@ -73,16 +73,19 @@ impl BindingGenerator for NodeBindingGenerator {
         for uniffi_bindgen::Component { ci, config: _, .. } in components {
             let sys_ts_main_file_name = format!("{}-sys", ci.namespace().to_kebab_case());
             let node_ts_main_file_name = format!("{}-node", ci.namespace().to_kebab_case());
+            let commonjs_shim_cjs_main_file_name = format!("{}-commonjs-shim", ci.namespace().to_kebab_case());
 
             let Bindings {
                 package_json_contents,
                 sys_ts_template_contents,
+                commonjs_shim_cjs_template_contents,
                 node_ts_file_contents,
                 index_ts_file_contents,
             } = generate_node_bindings(
                 &ci,
                 sys_ts_main_file_name.as_str(),
                 node_ts_main_file_name.as_str(),
+                commonjs_shim_cjs_main_file_name.as_str(),
                 self.out_dirname_api.clone(),
                 self.out_lib_disable_auto_loading,
                 self.out_import_extension.clone(),
@@ -99,6 +102,11 @@ impl BindingGenerator for NodeBindingGenerator {
 
             let sys_template_path = settings.out_dir.join(format!("{sys_ts_main_file_name}.ts"));
             write_with_dirs(&sys_template_path, sys_ts_template_contents)?;
+
+            if !commonjs_shim_cjs_template_contents.is_empty() {
+                let commonjs_shim_template_path = settings.out_dir.join(format!("{commonjs_shim_cjs_main_file_name}.cjs"));
+                write_with_dirs(&commonjs_shim_template_path, commonjs_shim_cjs_template_contents)?;
+            }
 
             let index_template_path = settings.out_dir.join("index.ts");
             write_with_dirs(&index_template_path, index_ts_file_contents)?;
