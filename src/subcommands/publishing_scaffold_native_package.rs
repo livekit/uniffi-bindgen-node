@@ -25,6 +25,12 @@ pub struct PublishingScaffoldNativePackageSubcommandArgs {
     #[arg(long, default_value = "0.0.0")]
     package_version: String,
 
+    #[arg(long, default_value = None)]
+    package_os: Option<String>,
+
+    #[arg(long, default_value = None)]
+    package_cpu: Option<String>,
+
     /// Output directory to write the native package into.
     #[arg(short, long, default_value = "./scaffolded-native-package")]
     out_dir: Utf8PathBuf,
@@ -46,6 +52,8 @@ pub fn run(args: PublishingScaffoldNativePackageSubcommandArgs) -> Result<()> {
     let package_json = json!({
         "name": args.package_name,
         "version": args.package_version,
+        "os": if let Some(os) = args.package_os { vec![os] } else { vec![] },
+        "cpu": if let Some(cpu) = args.package_cpu { vec![cpu] } else { vec![] },
 
         "main": "src/index.mjs",
         "types": "src/index.d.ts",
