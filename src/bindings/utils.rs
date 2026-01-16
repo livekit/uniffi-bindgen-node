@@ -5,6 +5,7 @@
 use std::collections::{HashMap, HashSet};
 
 use camino::Utf8PathBuf;
+use serde::Deserialize;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DirnameApi {
@@ -20,9 +21,76 @@ pub enum ImportExtension {
 }
 
 #[derive(Debug, Clone)]
+pub enum LibPath {
+    Omitted,
+    Literal(Utf8PathBuf),
+    Modules(LibPathModules),
+}
+
+impl LibPath {
+    pub fn from_raw(
+        out_lib_path_literal: Option<Utf8PathBuf>,
+        out_lib_path_module: Option<Vec<String>>,
+    ) -> Self {
+        if let Some(value) = out_lib_path_literal {
+            return Self::Literal(value);
+
+        } else if let Some(mods) = out_lib_path_module {
+            Self::Modules(LibPathModules(mods.into_iter().map(|module| {
+                serde_json::from_str(module.as_str()).unwrap_or(
+                    SerializedLibPathModule::from(module)
+                ).into()
+            }).collect()))
+
+        } else {
+            Self::Omitted
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct SerializedLibPathModule {
+    pub module: String,
+    pub version: Option<String>,
+    pub platform: Option<String>,
+    pub arch: Option<String>,
+}
+
+impl From<String> for SerializedLibPathModule {
+    fn from(module: String) -> Self {
+        Self { module, version: None, platform: None, arch: None }
+    }
+}
+
+impl From<SerializedLibPathModule> for LibPathModule {
+    fn from(value: SerializedLibPathModule) -> Self {
+        let mut module = LibPathModule::new(value.module.as_str());
+
+        if let Some(version) = value.version {
+            module = module.with_optional_dependency_version(version);
+        };
+        if let Some(platform) = value.platform {
+            module = module.with_filter("process.platform", platform);
+        };
+        if let Some(arch) = value.arch {
+            module = module.with_filter("process.arch", arch);
+        };
+
+        module
+    }
+}
+
+/// A struct representing a node.js js module containing a native dll / dylib / so.
+#[derive(Debug, Clone)]
 pub struct LibPathModule {
     pub require_path: String,
+
+    /// The `optionalDependencies` version of the given package. If unset, don't add the module to
+    /// `optionalDependencies` in the generated package.json.
     pub optional_dependency_version: Option<String>,
+
+    /// A set of abstract filters used to determine which systems this given module should be
+    /// loaded on. Filters are arbitrary but examples could be os, cpu architecture, etc.
     pub filters: HashMap<&'static str, String>,
 }
 
@@ -41,50 +109,6 @@ impl LibPathModule {
     pub fn with_optional_dependency_version(mut self, optional_dependency_version: String) -> Self {
         self.optional_dependency_version = Some(optional_dependency_version);
         self
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum LibPath {
-    Omitted,
-    Literal(Utf8PathBuf),
-    Modules(LibPathModules),
-}
-
-impl LibPath {
-    pub fn from_raw(
-        out_lib_path_literal: Option<Utf8PathBuf>,
-        out_lib_path_module: Option<Vec<String>>,
-        out_lib_path_module_platform: Option<Vec<String>>,
-        out_lib_path_module_arch: Option<Vec<String>>,
-        out_lib_path_module_optional_dependency_version: Option<Vec<String>>,
-    ) -> Self {
-        if let Some(value) = out_lib_path_literal {
-            return Self::Literal(value);
-
-        } else if let Some(mods) = out_lib_path_module {
-            let platform_values = out_lib_path_module_platform.unwrap_or(vec![]);
-            let arch_values = out_lib_path_module_arch.unwrap_or(vec![]);
-            let optional_dependency_versions = out_lib_path_module_optional_dependency_version.unwrap_or(vec![]);
-
-            Self::Modules(LibPathModules(mods.into_iter().enumerate().map(|(index, require_path)| {
-                let mut module = LibPathModule::new(require_path.as_str());
-                if let Some(opt_dep) = optional_dependency_versions.iter().nth(index).cloned() {
-                    module = module.with_optional_dependency_version(opt_dep);
-                };
-                if let Some(platform) = platform_values.iter().nth(index).cloned() {
-                    module = module.with_filter("process.platform", platform);
-                };
-                if let Some(arch) = arch_values.iter().nth(index).cloned() {
-                    module = module.with_filter("process.arch", arch);
-                };
-
-                module
-            }).collect()))
-
-        } else {
-            Self::Omitted
-        }
     }
 }
 

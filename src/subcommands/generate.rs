@@ -97,20 +97,15 @@ pub struct GenerateSubcommandArgs {
     /// successfully imported will be queried to get the lib path. This can be used when building
     /// a package intended to be published to production with a series of `optionalDependencies`,
     /// each associated with a given os/arch to bundle native dependencies into a published
-    /// package.
+    /// package. ie, `--out-lib-path-module @my/package --out-lib-path-module ./path/to/my/fallback.ts`
+    ///
+    /// This parameter can also be set to a json object which allows for more complex scenarios
+    /// where one package will be only attempted if a given platform / arch match. ie,
+    /// `--out-lib-path-module '{"module": "@my/package", "version": "0.0.1", "platform": "darwin", "arch": "x86"}' --out-lib-path-module ./path/to/my/fallback.ts`
     ///
     /// By default, this is is disabled in lieu of `out-lib-path-literal`.
     #[arg(long, value_parser, default_value=None, conflicts_with="out_lib_path_literal")]
     out_lib_path_module: Option<Vec<String>>,
-
-    #[arg(long, value_parser, default_value=None, conflicts_with="out_lib_path_literal")]
-    out_lib_path_module_platform: Option<Vec<String>>,
-
-    #[arg(long, value_parser, default_value=None, conflicts_with="out_lib_path_literal")]
-    out_lib_path_module_arch: Option<Vec<String>>,
-
-    #[arg(long, value_parser, default_value=None, conflicts_with="out_lib_path_literal")]
-    out_lib_path_module_optional_dependency_version: Option<Vec<String>>,
 
     /// If passed, adds verbose logging to the bindgen output, which is helpful for debugging
     /// issues in the bindgne itself.
@@ -135,13 +130,7 @@ pub fn run(args: GenerateSubcommandArgs) -> Result<()> {
         args.out_import_extension.into(),
         args.out_node_version.as_str(),
         args.out_verbose_logs,
-        utils::LibPath::from_raw(
-            args.out_lib_path_literal,
-            args.out_lib_path_module,
-            args.out_lib_path_module_platform,
-            args.out_lib_path_module_arch,
-            args.out_lib_path_module_optional_dependency_version,
-        ),
+        utils::LibPath::from_raw(args.out_lib_path_literal, args.out_lib_path_module),
     );
 
     uniffi_bindgen::library_mode::generate_bindings(
