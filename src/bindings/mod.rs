@@ -79,6 +79,7 @@ impl BindingGenerator for NodeBindingGenerator {
                 package_json_contents,
                 sys_ts_template_contents,
                 commonjs_shim_cjs_template_contents,
+                commonjs_shim_dcts_template_contents,
                 node_ts_file_contents,
                 index_ts_file_contents,
             } = generate_node_bindings(
@@ -106,6 +107,11 @@ impl BindingGenerator for NodeBindingGenerator {
             if !commonjs_shim_cjs_template_contents.is_empty() {
                 let commonjs_shim_template_path = settings.out_dir.join(format!("{commonjs_shim_cjs_main_file_name}.cjs"));
                 write_with_dirs(&commonjs_shim_template_path, commonjs_shim_cjs_template_contents)?;
+            }
+
+            if !commonjs_shim_dcts_template_contents.is_empty() {
+                let commonjs_shim_template_path = settings.out_dir.join(format!("{commonjs_shim_cjs_main_file_name}.d.cts"));
+                write_with_dirs(&commonjs_shim_template_path, commonjs_shim_dcts_template_contents)?;
             }
 
             let index_template_path = settings.out_dir.join("index.ts");
