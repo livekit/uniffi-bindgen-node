@@ -55,11 +55,20 @@ pub fn run(args: PublishingScaffoldNativePackageSubcommandArgs) -> Result<()> {
         "os": if let Some(os) = args.package_os { vec![os] } else { vec![] },
         "cpu": if let Some(cpu) = args.package_cpu { vec![cpu] } else { vec![] },
 
-        "main": "src/index.mjs",
-        "types": "src/index.d.ts",
+        "type": "module",
+        "main": "./src/index.cjs",
+        "types": "./src/index.d.mts",
         "exports": {
-            "import": "./src/index.mjs",
-            "require": "./src/index.js"
+            ".": {
+                "import": {
+                    "types": "./src/index.d.mjs",
+                    "default": "./src/index.mjs"
+                },
+                "require": {
+                    "types": "./src/index.d.cjs",
+                    "default": "./src/index.cjs"
+                },
+            }
         },
         "files": ["src"],
         "engines": { "node": ">= 18" },
@@ -80,8 +89,12 @@ pub fn run(args: PublishingScaffoldNativePackageSubcommandArgs) -> Result<()> {
             args.lib_triple,
             lib_source_filename,
         )),
-        ("index.d.ts", format!(
+        ("index.d.mts", format!(
             r#"declare function dlibFn(): {{ triple: "{}", path: string }}; export default dlibFn;"#,
+            args.lib_triple,
+        )),
+        ("index.d.cts", format!(
+            r#"declare function dlibFn(): {{ triple: "{}", path: string }}; export = dlibFn;"#,
             args.lib_triple,
         )),
     ] {
