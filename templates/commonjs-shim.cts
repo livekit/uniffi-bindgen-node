@@ -1,11 +1,16 @@
 {%- match out_lib_path -%}
   {%- when LibPath::Modules(mods) -%}
+    export type LibPathResult = {
+      triple: string;
+      path: string;
+    };
+
     // This function exists so calls can be made to require in a common js context and
     // the results bridged back into the main esm context
-    exports.getLibPathModule = function getLibPathModule() {
+    exports.getLibPathModule = function getLibPathModule(): LibPathResult {
       let libPathModule;
-      let libPathModuleLastResolutionError;
-      let libPathModuleLoadAttemptStack = [];
+      let libPathModuleLastResolutionError: Error | null = null;
+      let libPathModuleLoadAttemptStack: Array<string> = [];
 
       {%- for switch_token in mods.as_switch_tokens() -%}
         {% match switch_token -%}
