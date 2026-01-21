@@ -56,16 +56,16 @@ pub fn run(args: PublishingScaffoldNativePackageSubcommandArgs) -> Result<()> {
         "cpu": if let Some(cpu) = args.package_cpu { vec![cpu] } else { vec![] },
 
         "type": "module",
-        "main": "./src/index.cjs",
+        "main": "./src/index.mjs",
         "types": "./src/index.d.mts",
         "exports": {
             ".": {
                 "import": {
-                    "types": "./src/index.d.mjs",
+                    "types": "./src/index.d.mts",
                     "default": "./src/index.mjs"
                 },
                 "require": {
-                    "types": "./src/index.d.cjs",
+                    "types": "./src/index.d.cts",
                     "default": "./src/index.cjs"
                 },
             }
