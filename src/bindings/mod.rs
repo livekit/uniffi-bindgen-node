@@ -11,7 +11,7 @@ mod generator;
 mod filters;
 pub mod utils;
 
-use crate::{bindings::generator::{generate_node_bindings, Bindings}, utils::write_with_dirs};
+use crate::{bindings::generator::{generate_node_bindings, Bindings, GenerateNodeBindingsOptions}, utils::write_with_dirs};
 
 pub struct NodeBindingGenerator {
     out_dirname_api: utils::DirnameApi,
