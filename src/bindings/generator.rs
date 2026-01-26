@@ -146,11 +146,11 @@ pub fn generate_node_bindings(
     ci: &ComponentInterface,
     options: GenerateNodeBindingsOptions<'_>,
 ) -> Result<Bindings> {
-    let package_json_contents = PackageJsonTemplate::new(ci, out_node_version, out_lib_path.clone()).render().context("failed to render package.json template")?;
-    let sys_ts_template_contents = SysTemplate::new(ci, out_dirname_api, out_lib_disable_auto_loading, out_verbose_logs, out_lib_path.clone(), commonjs_shim_cts_main_file_name).render().context("failed to render sys.ts template")?;
-    let commonjs_shim_cts_template_contents = CommonJsShimTemplate::new(out_lib_path.clone()).render().context("failed to render commonjs_shim.cjs template")?;
-    let node_ts_file_contents = NodeTsTemplate::new(ci, sys_ts_main_file_name, out_import_extension.clone(), out_verbose_logs).render().context("failed to render node.ts template")?;
-    let index_ts_file_contents = IndexTsTemplate::new(node_ts_main_file_name, sys_ts_main_file_name, out_import_extension, out_lib_disable_auto_loading).render().context("failed to render index.ts template")?;
+    let package_json_contents = PackageJsonTemplate::new(ci, options.out_node_version, options.out_lib_path.clone()).render().context("failed to render package.json template")?;
+    let sys_ts_template_contents = SysTemplate::new(ci, options.out_dirname_api, options.out_lib_disable_auto_loading, options.out_verbose_logs, options.out_lib_path.clone(), options.commonjs_shim_cts_main_file_name).render().context("failed to render sys.ts template")?;
+    let commonjs_shim_cts_template_contents = CommonJsShimTemplate::new(options.out_lib_path.clone()).render().context("failed to render commonjs_shim.cjs template")?;
+    let node_ts_file_contents = NodeTsTemplate::new(ci, options.sys_ts_main_file_name, options.out_import_extension.clone(), options.out_verbose_logs).render().context("failed to render node.ts template")?;
+    let index_ts_file_contents = IndexTsTemplate::new(options.node_ts_main_file_name, options.sys_ts_main_file_name, options.out_import_extension, options.out_lib_disable_auto_loading).render().context("failed to render index.ts template")?;
 
     Ok(Bindings {
         package_json_contents,
