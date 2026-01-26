@@ -21,4 +21,4 @@ jobs:
       - name: Setup Rust Toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
       - name: Test
-        run: cargo test --profile ci
+        run: cargo test
