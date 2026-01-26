@@ -7,7 +7,7 @@
 
     // This function exists so calls can be made to require in a common js context and
     // the results bridged back into the main esm context
-    exports.getLibPathModule = function getLibPathModule(): LibPathResult {
+    module.exports.getLibPathModule = function getLibPathModule(): LibPathResult {
       let libPathModule;
       let libPathModuleLastResolutionError: Error | null = null;
       let libPathModuleLoadAttemptStack: Array<string> = [];

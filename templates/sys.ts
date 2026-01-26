@@ -24,7 +24,7 @@ import {
   UniffiError,
 } from 'uniffi-bindgen-react-native';
 {% if let LibPath::Modules(_) = out_lib_path %}
-import { getLibPathModule } from './{{ commonjs_shim_cjs_main_file_name }}.cjs';
+import { getLibPathModule } from './{{ commonjs_shim_cjs_main_file_name }}.cts';
 {% endif %}
 
 
