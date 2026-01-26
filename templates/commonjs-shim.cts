@@ -27,7 +27,7 @@
               try {
                 libPathModule = require("{{ value }}");
               } catch (e) {
-                libPathModuleLastResolutionError = e;
+                libPathModuleLastResolutionError = e as Error;
                 libPathModuleLoadAttemptStack.push("{{ value }}");
               }
             }
@@ -35,7 +35,14 @@
       {%- endfor -%}
 
       if (!libPathModule) {
-        throw new Error(`Failed to load a native binding library! Attempted loading from the following modules in order: ${libPathModuleLoadAttemptStack.join(", ")}. The error message from the final error is ${libPathModuleLastResolutionError}`);
+        const messageFragments = [
+          `Failed to load a native binding library!`,
+          `Attempted loading from the following modules in order: ${libPathModuleLoadAttemptStack.join(", ")}.`,
+        ];
+        if (libPathModuleLastResolutionError) {
+          messageFragments.push(`The error message from the final load attempt is: ${libPathModuleLastResolutionError?.stack ?? libPathModuleLastResolutionError}`);
+        }
+        throw new Error(messageFragments.join('\n'));
       }
 
       return libPathModule.default();
