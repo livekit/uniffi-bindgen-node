@@ -23,6 +23,10 @@ import {
   uniffiCreateFfiConverterString,
   UniffiError,
 } from 'uniffi-bindgen-react-native';
+{% if let LibPath::Modules(_) = out_lib_path %}
+import { getLibPathModule } from './{{ commonjs_shim_cjs_main_file_name }}.cts';
+{% endif %}
+
 
 const CALL_SUCCESS = 0, CALL_ERROR = 1, CALL_UNEXPECTED_ERROR = 2, CALL_CANCELLED = 3;
 
@@ -30,7 +34,7 @@ const CALL_SUCCESS = 0, CALL_ERROR = 1, CALL_UNEXPECTED_ERROR = 2, CALL_CANCELLE
 let libraryLoaded = false;
 /**
  * Loads the dynamic library from disk into memory.
- * {% if out_disable_auto_loading_lib -%}NOTE: this must be called before any other functions in this module are called.{%- endif %}
+ * {% if out_lib_disable_auto_loading -%}NOTE: this must be called before any other functions in this module are called.{%- endif %}
  */
 function _uniffiLoad() {
   const library = "lib{{ ci.crate_name() }}";
@@ -40,13 +44,31 @@ function _uniffiLoad() {
     console.warn("Unsupported platform:", platform);
     ext = "so";
   }
-  {% match out_dirname_api %}
-  {% when DirnameApi::Dirname %}
-  const libraryDirectory = __dirname;
-  {% when DirnameApi::ImportMetaUrl %}
-  const libraryDirectory = dirname(fileURLToPath(import.meta.url));
+
+  {% match out_dirname_api -%}
+    {%- when DirnameApi::Dirname -%}
+      const libraryDirectory = __dirname;
+    {%- when DirnameApi::ImportMetaUrl -%}
+      const libraryDirectory = dirname(fileURLToPath(import.meta.url));
+  {%- endmatch %}
+
+  // Get the path to the lib to load
+  {% match out_lib_path -%}
+    {%- when LibPath::Omitted -%}
+      const libraryPath = join(libraryDirectory, `${library}.${ext}`);
+
+    {% when LibPath::Literal(literal) %}
+      {%- if literal.is_absolute() -%}
+        const libraryPath = "{{ literal }}";
+      {%- else -%}
+        const libraryPath = join(libraryDirectory, "{{ literal }}");
+      {%- endif -%}
+
+    {% when LibPath::Modules(_) %}
+      const libraryPath = (getLibPathModule() as { triple: string, path: string }).path;
+
   {% endmatch %}
-  const libraryPath = join(libraryDirectory, `${library}.${ext}`);
+
   open({ library, path: libraryPath });
   libraryLoaded = true;
 }
@@ -66,7 +88,7 @@ function _checkUniffiLoaded() {
   }
 }
 
-{% if out_disable_auto_loading_lib %}
+{% if out_lib_disable_auto_loading %}
 export { _uniffiLoad as uniffiLoad, _uniffiUnload as uniffiUnload };
 {% else %}
 _uniffiLoad();

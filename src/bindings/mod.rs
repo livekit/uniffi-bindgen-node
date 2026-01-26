@@ -11,30 +11,33 @@ mod generator;
 mod filters;
 pub mod utils;
 
-use crate::{bindings::generator::{generate_node_bindings, Bindings}, utils::write_with_dirs};
+use crate::{bindings::generator::{generate_node_bindings, Bindings, GenerateNodeBindingsOptions}, utils::write_with_dirs};
 
 pub struct NodeBindingGenerator {
     out_dirname_api: utils::DirnameApi,
-    out_disable_auto_loading_lib: bool,
+    out_lib_disable_auto_loading: bool,
     out_import_extension: utils::ImportExtension,
     out_node_version: String,
     out_verbose_logs: bool,
+    out_lib_path: utils::LibPath,
 }
 
 impl NodeBindingGenerator {
     pub fn new(
         out_dirname_api: utils::DirnameApi,
-        out_disable_auto_loading_lib: bool,
+        out_lib_disable_auto_loading: bool,
         out_import_extension: utils::ImportExtension,
         out_node_version: &str,
         out_verbose_logs: bool,
+        out_lib_path: utils::LibPath,
     ) -> Self {
         Self {
             out_dirname_api,
-            out_disable_auto_loading_lib,
+            out_lib_disable_auto_loading,
             out_import_extension,
             out_node_version: out_node_version.into(),
             out_verbose_logs,
+            out_lib_path,
         }
     }
 }
@@ -70,21 +73,27 @@ impl BindingGenerator for NodeBindingGenerator {
         for uniffi_bindgen::Component { ci, config: _, .. } in components {
             let sys_ts_main_file_name = format!("{}-sys", ci.namespace().to_kebab_case());
             let node_ts_main_file_name = format!("{}-node", ci.namespace().to_kebab_case());
+            let commonjs_shim_cts_main_file_name = format!("{}-commonjs-shim", ci.namespace().to_kebab_case());
 
             let Bindings {
                 package_json_contents,
                 sys_ts_template_contents,
+                commonjs_shim_cts_template_contents,
                 node_ts_file_contents,
                 index_ts_file_contents,
             } = generate_node_bindings(
                 &ci,
-                sys_ts_main_file_name.as_str(),
-                node_ts_main_file_name.as_str(),
-                self.out_dirname_api.clone(),
-                self.out_disable_auto_loading_lib,
-                self.out_import_extension.clone(),
-                self.out_node_version.as_str(),
-                self.out_verbose_logs,
+                GenerateNodeBindingsOptions {
+                    sys_ts_main_file_name: sys_ts_main_file_name.as_str(),
+                    node_ts_main_file_name: node_ts_main_file_name.as_str(),
+                    commonjs_shim_cts_main_file_name: commonjs_shim_cts_main_file_name.as_str(),
+                    out_dirname_api: self.out_dirname_api.clone(),
+                    out_lib_disable_auto_loading: self.out_lib_disable_auto_loading,
+                    out_import_extension: self.out_import_extension.clone(),
+                    out_node_version: self.out_node_version.as_str(),
+                    out_verbose_logs: self.out_verbose_logs,
+                    out_lib_path: self.out_lib_path.clone(),
+                }
             )?;
 
             let package_json_path = settings.out_dir.join("package.json");
@@ -95,6 +104,11 @@ impl BindingGenerator for NodeBindingGenerator {
 
             let sys_template_path = settings.out_dir.join(format!("{sys_ts_main_file_name}.ts"));
             write_with_dirs(&sys_template_path, sys_ts_template_contents)?;
+
+            if !commonjs_shim_cts_template_contents.is_empty() {
+                let commonjs_shim_template_path = settings.out_dir.join(format!("{commonjs_shim_cts_main_file_name}.cts"));
+                write_with_dirs(&commonjs_shim_template_path, commonjs_shim_cts_template_contents)?;
+            }
 
             let index_template_path = settings.out_dir.join("index.ts");
             write_with_dirs(&index_template_path, index_ts_file_contents)?;
