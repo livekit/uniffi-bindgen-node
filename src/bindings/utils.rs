@@ -124,9 +124,20 @@ pub enum LibPathSwitchToken<T> {
 }
 
 impl LibPathModules {
-    pub fn as_switch_tokens_by(&self, dimensions: Vec<&'static str>) -> Vec<LibPathSwitchToken<String>> {
+    pub fn as_switch_tokens_by(
+        &self,
+        dimensions: Vec<&'static str>,
+    ) -> Vec<LibPathSwitchToken<String>> {
+        if self.0.is_empty() {
+            return vec![];
+        };
+
         let Some((first_dimension, rest_dimensions)) = dimensions.split_first() else {
-            return self.0.iter().map(|module| LibPathSwitchToken::Value(module.require_path.clone())).collect();
+            return self
+                .0
+                .iter()
+                .map(|module| LibPathSwitchToken::Value(module.require_path.clone()))
+                .collect();
         };
 
         let mut grouped_modules = HashMap::new();
@@ -135,8 +146,11 @@ impl LibPathModules {
                 continue;
             };
 
-            grouped_modules.entry(dimension_value.clone()).or_insert(vec![]).push(module_entry);
-        };
+            grouped_modules
+                .entry(dimension_value.clone())
+                .or_insert(vec![])
+                .push(module_entry);
+        }
 
         let mut tokens = vec![];
 
@@ -149,23 +163,39 @@ impl LibPathModules {
 
         for (first_dimension_value, module_entries) in sorted_grouped_modules {
             tokens.push(LibPathSwitchToken::Case(first_dimension_value));
-            let values = Self(module_entries.iter().map(|a| (*a).clone()).collect()).as_switch_tokens_by(rest_dimensions.to_vec());
+
+            let module_entries_cloned = module_entries
+                .iter()
+                .map(|entry| {
+                    let mut cloned = (*entry).clone();
+                    cloned.filters.remove(first_dimension);
+                    cloned
+                })
+                .collect();
+
+            let values = Self(module_entries_cloned).as_switch_tokens_by(rest_dimensions.to_vec());
             tokens.extend(values);
         }
         tokens.push(LibPathSwitchToken::EndSwitch(*first_dimension));
 
         // Finish the tokens list with any entries that don't have associated filters
         tokens.extend(
-            self.0.iter()
+            self.0
+                .iter()
                 .filter(|module_entry| module_entry.filters.is_empty())
-                .map(|module_entry| LibPathSwitchToken::Value(module_entry.require_path.clone()))
+                .map(|module_entry| LibPathSwitchToken::Value(module_entry.require_path.clone())),
         );
 
         tokens
     }
 
     pub fn as_switch_tokens(&self) -> Vec<LibPathSwitchToken<String>> {
-        let keys = self.0.iter().flat_map(|module| module.filters.keys()).map(|key| *key).collect::<HashSet<_>>();
+        let keys = self
+            .0
+            .iter()
+            .flat_map(|module| module.filters.keys())
+            .map(|key| *key)
+            .collect::<HashSet<_>>();
         self.as_switch_tokens_by(keys.into_iter().collect())
     }
 
@@ -186,30 +216,148 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_switch_grouping_works() {
+    fn test_happy_path() {
         let result = LibPathModules(vec![
-            LibPathModule::new("foo").with_filter("arch", "x86".into()).with_filter("platform", "win".into()),
-            LibPathModule::new("bar").with_filter("arch", "x86".into()).with_filter("platform", "mac".into()),
-            LibPathModule::new("baz").with_filter("arch", "x86".into()).with_filter("platform", "mac".into()),
-            LibPathModule::new("quux").with_filter("arch", "aarch64".into()).with_filter("platform", "win".into()),
-        ]).as_switch_tokens_by(vec!["arch", "platform"]);
+            LibPathModule::new("foo")
+                .with_filter("arch", "x86".into())
+                .with_filter("platform", "win".into()),
+            LibPathModule::new("bar")
+                .with_filter("arch", "x86".into())
+                .with_filter("platform", "mac".into()),
+            LibPathModule::new("baz")
+                .with_filter("arch", "aarch64".into())
+                .with_filter("platform", "win".into()),
+        ])
+        .as_switch_tokens_by(vec!["arch", "platform"]);
 
-        assert_eq!(result, vec![
-            LibPathSwitchToken::Switch("arch"),
-            LibPathSwitchToken::Case("aarch64".into()),
-            LibPathSwitchToken::Switch("platform"),
-            LibPathSwitchToken::Case("win".into()),
-            LibPathSwitchToken::Value("quux".into()),
-            LibPathSwitchToken::EndSwitch("platform"),
-            LibPathSwitchToken::Case("x86".into()),
-            LibPathSwitchToken::Switch("platform"),
-            LibPathSwitchToken::Case("mac".into()),
-            LibPathSwitchToken::Value("bar".into()),
-            LibPathSwitchToken::Value("baz".into()),
-            LibPathSwitchToken::Case("win".into()),
-            LibPathSwitchToken::Value("foo".into()),
-            LibPathSwitchToken::EndSwitch("platform"),
-            LibPathSwitchToken::EndSwitch("arch"),
-        ]);
+        assert_eq!(
+            result,
+            vec![
+                LibPathSwitchToken::Switch("arch"),
+                LibPathSwitchToken::Case("aarch64".into()),
+                LibPathSwitchToken::Switch("platform"),
+                LibPathSwitchToken::Case("win".into()),
+                LibPathSwitchToken::Value("baz".into()),
+                LibPathSwitchToken::EndSwitch("platform"),
+                LibPathSwitchToken::Case("x86".into()),
+                LibPathSwitchToken::Switch("platform"),
+                LibPathSwitchToken::Case("mac".into()),
+                LibPathSwitchToken::Value("bar".into()),
+                LibPathSwitchToken::Case("win".into()),
+                LibPathSwitchToken::Value("foo".into()),
+                LibPathSwitchToken::EndSwitch("platform"),
+                LibPathSwitchToken::EndSwitch("arch"),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_filter_values_go_right_after_each_other() {
+        let result = LibPathModules(vec![
+            LibPathModule::new("foo")
+                .with_filter("arch", "x86".into())
+                .with_filter("platform", "win".into()),
+            // NOTE: bar and baz have the same filters...
+            LibPathModule::new("bar")
+                .with_filter("arch", "x86".into())
+                .with_filter("platform", "mac".into()),
+            LibPathModule::new("baz")
+                .with_filter("arch", "x86".into())
+                .with_filter("platform", "mac".into()),
+            LibPathModule::new("quux")
+                .with_filter("arch", "aarch64".into())
+                .with_filter("platform", "win".into()),
+        ])
+        .as_switch_tokens_by(vec!["arch", "platform"]);
+
+        assert_eq!(
+            result,
+            vec![
+                LibPathSwitchToken::Switch("arch"),
+                LibPathSwitchToken::Case("aarch64".into()),
+                LibPathSwitchToken::Switch("platform"),
+                LibPathSwitchToken::Case("win".into()),
+                LibPathSwitchToken::Value("quux".into()),
+                LibPathSwitchToken::EndSwitch("platform"),
+                LibPathSwitchToken::Case("x86".into()),
+                LibPathSwitchToken::Switch("platform"),
+                LibPathSwitchToken::Case("mac".into()),
+                LibPathSwitchToken::Value("bar".into()), // ... so bar goes here
+                LibPathSwitchToken::Value("baz".into()), // and baz goes right afterwards (sorted alphabetically)
+                LibPathSwitchToken::Case("win".into()),
+                LibPathSwitchToken::Value("foo".into()),
+                LibPathSwitchToken::EndSwitch("platform"),
+                LibPathSwitchToken::EndSwitch("arch"),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_cases_without_filters_go_last() {
+        let result = LibPathModules(vec![
+            LibPathModule::new("foo")
+                .with_filter("arch", "x86".into())
+                .with_filter("platform", "win".into()),
+            LibPathModule::new("bar")
+                .with_filter("arch", "x86".into())
+                .with_filter("platform", "mac".into()),
+            LibPathModule::new("baz"), // NOTE: baz has no filters...
+        ])
+        .as_switch_tokens_by(vec!["arch", "platform"]);
+
+        assert_eq!(
+            result,
+            vec![
+                LibPathSwitchToken::Switch("arch"),
+                LibPathSwitchToken::Case("x86".into()),
+                LibPathSwitchToken::Switch("platform"),
+                LibPathSwitchToken::Case("mac".into()),
+                LibPathSwitchToken::Value("bar".into()),
+                LibPathSwitchToken::Case("win".into()),
+                LibPathSwitchToken::Value("foo".into()),
+                LibPathSwitchToken::EndSwitch("platform"),
+                LibPathSwitchToken::EndSwitch("arch"),
+                LibPathSwitchToken::Value("baz".into()), // ... so baz goes last.
+            ]
+        );
+    }
+
+    #[test]
+    fn test_no_filters() {
+        let result = LibPathModules(vec![]).as_switch_tokens_by(vec!["arch", "platform"]);
+        assert_eq!(result, vec![]);
+    }
+
+    #[test]
+    fn test_not_every_entry_has_every_filter() {
+        let result = LibPathModules(vec![
+            LibPathModule::new("foo").with_filter("arch", "x86".into()),
+            LibPathModule::new("bar")
+                .with_filter("arch", "x86".into())
+                .with_filter("platform", "mac".into()),
+            LibPathModule::new("baz")
+                .with_filter("arch", "aarch64".into())
+                .with_filter("platform", "win".into()),
+        ])
+        .as_switch_tokens_by(vec!["arch", "platform"]);
+
+        assert_eq!(
+            result,
+            vec![
+                LibPathSwitchToken::Switch("arch"),
+                LibPathSwitchToken::Case("aarch64".into()),
+                LibPathSwitchToken::Switch("platform"),
+                LibPathSwitchToken::Case("win".into()),
+                LibPathSwitchToken::Value("baz".into()),
+                LibPathSwitchToken::EndSwitch("platform"),
+                LibPathSwitchToken::Case("x86".into()),
+                LibPathSwitchToken::Switch("platform"),
+                LibPathSwitchToken::Case("mac".into()),
+                LibPathSwitchToken::Value("bar".into()),
+                LibPathSwitchToken::EndSwitch("platform"),
+                LibPathSwitchToken::Value("foo".into()),
+                LibPathSwitchToken::EndSwitch("arch"),
+            ]
+        );
     }
 }
