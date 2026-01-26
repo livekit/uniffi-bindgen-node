@@ -128,17 +128,23 @@ impl IndexTsTemplate {
     }
 }
 
+/// Options required to pass to [generate_node_bindings] invocations.
+#[derive(Debug)]
+pub struct GenerateNodeBindingsOptions<'a> {
+    pub sys_ts_main_file_name: &'a str,
+    pub node_ts_main_file_name: &'a str,
+    pub commonjs_shim_cts_main_file_name: &'a str,
+    pub out_dirname_api: DirnameApi,
+    pub out_lib_disable_auto_loading: bool,
+    pub out_import_extension: ImportExtension,
+    pub out_node_version: &'a str,
+    pub out_verbose_logs: bool,
+    pub out_lib_path: LibPath,
+}
+
 pub fn generate_node_bindings(
     ci: &ComponentInterface,
-    sys_ts_main_file_name: &str,
-    node_ts_main_file_name: &str,
-    commonjs_shim_cts_main_file_name: &str,
-    out_dirname_api: DirnameApi,
-    out_lib_disable_auto_loading: bool,
-    out_import_extension: ImportExtension,
-    out_node_version: &str,
-    out_verbose_logs: bool,
-    out_lib_path: LibPath,
+    options: GenerateNodeBindingsOptions<'_>,
 ) -> Result<Bindings> {
     let package_json_contents = PackageJsonTemplate::new(ci, out_node_version, out_lib_path.clone()).render().context("failed to render package.json template")?;
     let sys_ts_template_contents = SysTemplate::new(ci, out_dirname_api, out_lib_disable_auto_loading, out_verbose_logs, out_lib_path.clone(), commonjs_shim_cts_main_file_name).render().context("failed to render sys.ts template")?;
