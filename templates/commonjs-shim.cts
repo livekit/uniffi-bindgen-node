@@ -18,6 +18,8 @@
           switch ({{ value }}) {
         {% when LibPathSwitchToken::Case(value) -%}
           case "{{value}}":
+        {% when LibPathSwitchToken::EndCase -%}
+          break;
         {% when LibPathSwitchToken::EndSwitch(_value) -%}
           }
         {% when LibPathSwitchToken::Value(value) -%}

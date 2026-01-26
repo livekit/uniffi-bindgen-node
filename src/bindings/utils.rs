@@ -119,6 +119,7 @@ pub struct LibPathModules(Vec<LibPathModule>);
 pub enum LibPathSwitchToken<T> {
     Switch(&'static str),
     Case(String),
+    EndCase,
     EndSwitch(&'static str),
     Value(T),
 }
@@ -175,6 +176,7 @@ impl LibPathModules {
 
             let values = Self(module_entries_cloned).as_switch_tokens_by(rest_dimensions.to_vec());
             tokens.extend(values);
+            tokens.push(LibPathSwitchToken::EndCase);
         }
         tokens.push(LibPathSwitchToken::EndSwitch(*first_dimension));
 
@@ -238,14 +240,19 @@ mod test {
                 LibPathSwitchToken::Switch("platform"),
                 LibPathSwitchToken::Case("win".into()),
                 LibPathSwitchToken::Value("baz".into()),
+                LibPathSwitchToken::EndCase,
                 LibPathSwitchToken::EndSwitch("platform"),
+                LibPathSwitchToken::EndCase,
                 LibPathSwitchToken::Case("x86".into()),
                 LibPathSwitchToken::Switch("platform"),
                 LibPathSwitchToken::Case("mac".into()),
                 LibPathSwitchToken::Value("bar".into()),
+                LibPathSwitchToken::EndCase,
                 LibPathSwitchToken::Case("win".into()),
                 LibPathSwitchToken::Value("foo".into()),
+                LibPathSwitchToken::EndCase,
                 LibPathSwitchToken::EndSwitch("platform"),
+                LibPathSwitchToken::EndCase,
                 LibPathSwitchToken::EndSwitch("arch"),
             ]
         );
@@ -278,15 +285,20 @@ mod test {
                 LibPathSwitchToken::Switch("platform"),
                 LibPathSwitchToken::Case("win".into()),
                 LibPathSwitchToken::Value("quux".into()),
+                LibPathSwitchToken::EndCase,
                 LibPathSwitchToken::EndSwitch("platform"),
+                LibPathSwitchToken::EndCase,
                 LibPathSwitchToken::Case("x86".into()),
                 LibPathSwitchToken::Switch("platform"),
                 LibPathSwitchToken::Case("mac".into()),
                 LibPathSwitchToken::Value("bar".into()), // ... so bar goes here
                 LibPathSwitchToken::Value("baz".into()), // and baz goes right afterwards (sorted alphabetically)
+                LibPathSwitchToken::EndCase,
                 LibPathSwitchToken::Case("win".into()),
                 LibPathSwitchToken::Value("foo".into()),
+                LibPathSwitchToken::EndCase,
                 LibPathSwitchToken::EndSwitch("platform"),
+                LibPathSwitchToken::EndCase,
                 LibPathSwitchToken::EndSwitch("arch"),
             ]
         );
@@ -313,9 +325,12 @@ mod test {
                 LibPathSwitchToken::Switch("platform"),
                 LibPathSwitchToken::Case("mac".into()),
                 LibPathSwitchToken::Value("bar".into()),
+                LibPathSwitchToken::EndCase,
                 LibPathSwitchToken::Case("win".into()),
                 LibPathSwitchToken::Value("foo".into()),
+                LibPathSwitchToken::EndCase,
                 LibPathSwitchToken::EndSwitch("platform"),
+                LibPathSwitchToken::EndCase,
                 LibPathSwitchToken::EndSwitch("arch"),
                 LibPathSwitchToken::Value("baz".into()), // ... so baz goes last.
             ]
@@ -349,13 +364,17 @@ mod test {
                 LibPathSwitchToken::Switch("platform"),
                 LibPathSwitchToken::Case("win".into()),
                 LibPathSwitchToken::Value("baz".into()),
+                LibPathSwitchToken::EndCase,
                 LibPathSwitchToken::EndSwitch("platform"),
+                LibPathSwitchToken::EndCase,
                 LibPathSwitchToken::Case("x86".into()),
                 LibPathSwitchToken::Switch("platform"),
                 LibPathSwitchToken::Case("mac".into()),
                 LibPathSwitchToken::Value("bar".into()),
+                LibPathSwitchToken::EndCase,
                 LibPathSwitchToken::EndSwitch("platform"),
                 LibPathSwitchToken::Value("foo".into()),
+                LibPathSwitchToken::EndCase,
                 LibPathSwitchToken::EndSwitch("arch"),
             ]
         );
