@@ -1,6 +1,6 @@
 {%- match out_lib_path -%}
   {%- when LibPath::Modules(mods) -%}
-    export type LibPathResult = {
+    type LibPathResult = {
       triple: string;
       path: string;
     };
