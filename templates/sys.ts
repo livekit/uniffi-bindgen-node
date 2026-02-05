@@ -2,6 +2,9 @@ import { join, dirname } from "path";
 {% if out_dirname_api == DirnameApi::ImportMetaUrl %}
 import { fileURLToPath } from 'url';
 {% endif %}
+{% if let LibPath::Modules(_) = out_lib_path %}
+import { createRequire } from "module";
+{% endif %}
 import {
   DataType,
   JsExternal,
@@ -23,9 +26,6 @@ import {
   uniffiCreateFfiConverterString,
   UniffiError,
 } from 'uniffi-bindgen-react-native';
-{% if let LibPath::Modules(_) = out_lib_path %}
-import * as commonjsShim from './{{ commonjs_shim_cjs_main_file_name }}.cts';
-{% endif %}
 
 
 const CALL_SUCCESS = 0, CALL_ERROR = 1, CALL_UNEXPECTED_ERROR = 2, CALL_CANCELLED = 3;
@@ -47,9 +47,11 @@ function _uniffiLoad() {
 
   {% match out_dirname_api -%}
     {%- when DirnameApi::Dirname -%}
+      const filePath = __filename;
       const libraryDirectory = __dirname;
     {%- when DirnameApi::ImportMetaUrl -%}
-      const libraryDirectory = dirname(fileURLToPath(import.meta.url));
+      const filePath = fileURLToPath(import.meta.url);
+      const libraryDirectory = dirname(filePath);
   {%- endmatch %}
 
   // Get the path to the lib to load
@@ -64,9 +66,46 @@ function _uniffiLoad() {
         const libraryPath = join(libraryDirectory, "{{ literal }}");
       {%- endif -%}
 
-    {% when LibPath::Modules(_) %}
-      // @ts-ignore
-      const libraryPath = (commonjsShim.getLibPathModule() as { triple: string, path: string }).path;
+    {% when LibPath::Modules(mods) %}
+      let libPathModule;
+      let libPathModuleLastResolutionError: Error | null = null;
+      let libPathModuleLoadAttemptStack: Array<string> = [];
+
+      const commonjsRequire = createRequire(filePath);
+      {%- for switch_token in mods.as_switch_tokens() -%}
+        {% match switch_token -%}
+        {% when LibPathSwitchToken::Switch(value) -%}
+          switch ({{ value }}) {
+        {% when LibPathSwitchToken::Case(value) -%}
+          case "{{value}}":
+        {% when LibPathSwitchToken::EndCase -%}
+          break;
+        {% when LibPathSwitchToken::EndSwitch(_value) -%}
+          }
+        {% when LibPathSwitchToken::Value(value) -%}
+            if (!libPathModule) {
+              try {
+                libPathModule = commonjsRequire("{{ value }}");
+              } catch (e) {
+                libPathModuleLastResolutionError = e as Error;
+                libPathModuleLoadAttemptStack.push("{{ value }}");
+              }
+            }
+        {%- endmatch -%}
+      {%- endfor -%}
+
+      if (!libPathModule) {
+        const messageFragments = [
+          `Failed to load a native binding library!`,
+          `Attempted loading from the following modules in order: ${libPathModuleLoadAttemptStack.join(", ")}.`,
+        ];
+        if (libPathModuleLastResolutionError) {
+          messageFragments.push(`The error message from the final load attempt is: ${libPathModuleLastResolutionError?.stack ?? libPathModuleLastResolutionError}`);
+        }
+        throw new Error(messageFragments.join('\n'));
+      }
+
+      const libraryPath = libPathModule.default().path;
 
   {% endmatch %}
 
