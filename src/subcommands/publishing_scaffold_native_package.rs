@@ -17,6 +17,11 @@ pub struct PublishingScaffoldNativePackageSubcommandArgs {
     /// Rust triple representing the platform that `lib-source` was compiled under.
     lib_triple: Utf8PathBuf,
 
+    /// The value of the "name" field in the main package's "package.json". Used to add context to
+    /// the README.md about the purpose of the package.
+    #[arg(long, default_value = None)]
+    lib_package_name: Option<String>,
+
     /// The value to set the "name" field of the generated package.json
     #[arg(long)]
     package_name: String,
@@ -70,7 +75,7 @@ pub fn run(args: PublishingScaffoldNativePackageSubcommandArgs) -> Result<()> {
                 },
             }
         },
-        "files": ["src"],
+        "files": ["src", "README.md"],
         "engines": { "node": ">= 18" },
     });
     fs::write(
@@ -103,6 +108,15 @@ pub fn run(args: PublishingScaffoldNativePackageSubcommandArgs) -> Result<()> {
             contents,
         ).context(format!("Error writing {filename}"))?;
     }
+
+    fs::write(
+        args.out_dir.clone().join("README.md"),
+        if let Some(lib_package_name) = args.lib_package_name {
+            format!("# {}\nThis is an internal package containing the `{}` platform binary for the `{}` package.\n", args.package_name, args.lib_triple, lib_package_name)
+        } else {
+            format!("# {}\nThis is an internal package containing a `{}` platform binary.\n", args.package_name, args.lib_triple)
+        },
+    ).context(format!("Error writing README.md"))?;
 
     Ok(())
 }
