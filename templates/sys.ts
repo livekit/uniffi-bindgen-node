@@ -55,16 +55,25 @@ function _uniffiLoad() {
   {%- endmatch %}
 
   // Get the path to the lib to load
+
+  // 1. Use the library passed in the environment with the highest precidence
+  let libraryPath = process.env[`${library.toUpperCase()}_PATH`];
+
+  // 2. Or, fallback to the at build time defined mechanism
   {% match out_lib_path -%}
     {%- when LibPath::Omitted -%}
-      const libraryPath = join(libraryDirectory, `${library}.${ext}`);
+      if (!libraryPath) {
+        libraryPath = join(libraryDirectory, `${library}.${ext}`);
+      }
 
     {% when LibPath::Literal(literal) %}
-      {%- if literal.is_absolute() -%}
-        const libraryPath = "{{ literal }}";
-      {%- else -%}
-        const libraryPath = join(libraryDirectory, "{{ literal }}");
-      {%- endif -%}
+      if (!libraryPath) {
+        {%- if literal.is_absolute() -%}
+          libraryPath = "{{ literal }}";
+        {%- else -%}
+          libraryPath = join(libraryDirectory, "{{ literal }}");
+        {%- endif -%}
+      }
 
     {% when LibPath::Modules(mods) %}
       let libPathModule;
@@ -105,7 +114,9 @@ function _uniffiLoad() {
         throw new Error(messageFragments.join('\n'));
       }
 
-      const libraryPath = libPathModule.default().path;
+      if (!libraryPath) {
+        libraryPath = libPathModule.default().path;
+      }
 
   {% endmatch %}
 
