@@ -140,3 +140,51 @@ pub fn generate_node_bindings(
         index_ts_file_contents,
     })
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn bytes_roundtrip_uses_rust_buffer_serde_in_generated_bindings() {
+        let ci = ComponentInterface::from_webidl(
+            r#"
+            namespace test {
+                bytes round_trip(bytes input);
+            };
+        "#,
+            "crate_name",
+        ).unwrap();
+
+        let bindings = generate_node_bindings(
+            &ci,
+            GenerateNodeBindingsOptions {
+                sys_ts_main_file_name: "test-sys",
+                node_ts_main_file_name: "test-node",
+                out_dirname_api: DirnameApi::Dirname,
+                out_lib_disable_auto_loading: false,
+                out_import_extension: ImportExtension::None,
+                out_node_version: "^18",
+                out_verbose_logs: false,
+                out_lib_path: LibPath::Omitted,
+            },
+        ).unwrap();
+
+        assert!(
+            bindings.node_ts_file_contents.contains("export function roundTrip("),
+            "node.ts should render the bytes round-trip function from the UDL"
+        );
+        assert!(
+            bindings.node_ts_file_contents.contains(
+                "let inputArg = UniffiRustBufferValue.allocateWithBytes(FfiConverterArrayBuffer.lower(input)).toStruct();"
+            ),
+            "node.ts should lower bytes arguments into a RustBuffer struct before the ffi call"
+        );
+        assert!(
+            bindings.node_ts_file_contents.contains(
+                "return FfiConverterArrayBuffer.lift(new UniffiRustBufferValue(returnValue).consumeIntoUint8Array());"
+            ),
+            "node.ts should lift bytes return values from the RustBuffer returned by ffi"
+        );
+    }
+}
