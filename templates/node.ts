@@ -10,7 +10,7 @@
 
 {%- macro function_return_type_or_void(func_def) -%}
   {%- call function_return_type(func_def) -%}
-  {%- if func_def.return_type().is_none() -%}: void{%- endif %}
+  {%- if func_def.return_type().is_none() -%}: {% if func_def.is_async() -%}Promise<void>{%- else -%}void{%- endif %}{%- endif %}
 {%- endmacro -%}
 
 {% macro function_call_body(func_def, associated_object_name = "") %}
@@ -136,7 +136,7 @@
     {%- match func_def.throws_type() -%}
       {%- when Some(err) -%}
         uniffiCaller.rustCallWithError(
-          /*liftError:*/ (buffer) => ["{{err | typescript_type_name}}", {{err | typescript_ffi_converter_name}}.lift(buffer)],
+          /*liftError:*/ (buffer) => new UniffiThrownObject("{{err | typescript_type_name}}", {{err | typescript_ffi_converter_name}}.lift(buffer)),
           /*caller:*/ (callStatus) => {
       {%- else -%}
         uniffiCaller.rustCall(
@@ -204,7 +204,7 @@ import {
   FfiConverterArrayBuffer,
   FfiConverterObject,
   RustBuffer,
-  UniffiError,
+  UniffiThrownObject,
   UniffiInternalError,
   type UniffiRustCaller,
   type UniffiRustCallStatus,
@@ -382,7 +382,7 @@ export class {{ object_def.name() | typescript_class_name }} extends UniffiAbstr
     const pointer = {%- match constructor_fn.throws_type() -%}
       {%- when Some(err) -%}
         uniffiCaller.rustCallWithError(
-          /*liftError:*/ (buffer) => ["{{err | typescript_type_name}}", {{err | typescript_ffi_converter_name}}.lift(buffer)],
+          /*liftError:*/ (buffer) => new UniffiThrownObject("{{err | typescript_type_name}}", {{err | typescript_ffi_converter_name}}.lift(buffer)),
           /*caller:*/ (callStatus) => {
       {%- else -%}
         uniffiCaller.rustCall(
@@ -554,9 +554,7 @@ const {{ object_def.name() | typescript_ffi_converter_struct_enum_object_name }}
 {% call ts::docstring(func_def, 0) %}
 export {% if func_def.is_async() %}async {% endif %}function {{ func_def.name() | typescript_fn_name }}(
   {%- call ts::param_list(func_def) -%}
-){%- if let Some(ret_type) = func_def.return_type() -%}: {% if func_def.is_async() -%}
-  Promise<{%- endif -%}{{ ret_type | typescript_type_name }}{%- if func_def.is_async() -%}>{%- endif -%}
-{%- endif %} {
+){% call function_return_type_or_void(func_def) %} {
   {%- call function_call_body(func_def) -%}
 }
 

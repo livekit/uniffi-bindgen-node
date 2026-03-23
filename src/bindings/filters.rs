@@ -108,7 +108,7 @@ pub fn typescript_ffi_converter_name(typ: &impl AsType, askama_values: &dyn aska
         Type::Float64 => "FfiConverterFloat64".into(),
         Type::Boolean => "FfiConverterBool".into(),
         Type::String => "FfiConverterString".into(),
-        Type::Bytes => "FfiConverterBytes".into(),
+        Type::Bytes => "FfiConverterArrayBuffer".into(),
         Type::Timestamp => "FfiConverterTimestamp".into(),
         Type::Duration => "FfiConverterDuration".into(),
         Type::Enum { name, .. } | Type::Record { name, .. } | Type::Object { name, .. } => typescript_ffi_converter_struct_enum_object_name(&name, askama_values)?,
@@ -131,7 +131,7 @@ pub fn typescript_ffi_converter_name(typ: &impl AsType, askama_values: &dyn aska
 
 pub fn typescript_ffi_converter_lift_with(target: String, askama_values: &dyn askama::Values, typ: &impl AsType) -> Result<String> {
     Ok(match typ.as_type() {
-        Type::String | Type::Map { .. } | Type::Sequence { .. } | Type::Enum { .. } | Type::Record { .. } => {
+        Type::String | Type::Bytes | Type::Map { .. } | Type::Sequence { .. } | Type::Enum { .. } | Type::Record { .. } => {
             format!("{}.lift(new UniffiRustBufferValue({target}).consumeIntoUint8Array())", typescript_ffi_converter_name(typ, askama_values)?)
         },
         Type::Optional { inner_type } => {
@@ -143,7 +143,7 @@ pub fn typescript_ffi_converter_lift_with(target: String, askama_values: &dyn as
 
 pub fn typescript_ffi_converter_lower_with(target: String, askama_values: &dyn askama::Values, typ: &impl AsType) -> Result<String> {
     Ok(match typ.as_type() {
-        Type::String | Type::Map { .. } | Type::Sequence { .. } | Type::Enum { .. } | Type::Record { .. } => {
+        Type::String | Type::Bytes | Type::Map { .. } | Type::Sequence { .. } | Type::Enum { .. } | Type::Record { .. } => {
             format!("UniffiRustBufferValue.allocateWithBytes({}.lower({target})).toStruct()", typescript_ffi_converter_name(typ, askama_values)?)
         },
         Type::Optional { inner_type } => {
