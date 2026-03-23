@@ -24,7 +24,6 @@ import {
   type UniffiByteArray,
   UniffiInternalError,
   uniffiCreateFfiConverterString,
-  UniffiError,
 } from 'uniffi-bindgen-react-native';
 
 
@@ -156,8 +155,8 @@ class UniffiFfiRsRustCaller {
     return this.makeRustCall(caller, liftString);
   }
 
-  rustCallWithError<T, ErrorEnumAndVariant extends [string, string]>(
-    liftError: (buffer: UniffiByteArray) => ErrorEnumAndVariant,
+  rustCallWithError<T>(
+    liftError: (buffer: UniffiByteArray) => Error,
     caller: (status: JsExternal) => T,
     liftString: (bytes: UniffiByteArray) => string,
   ): T {
@@ -187,10 +186,10 @@ class UniffiFfiRsRustCaller {
     // return status;
   }
 
-  makeRustCall<T, ErrorEnumAndVariant extends [string, string]>(
+  makeRustCall<T>(
     caller: (status: JsExternal) => T,
     liftString: (bytes: UniffiByteArray) => string,
-    liftError?: (buffer: UniffiByteArray) => ErrorEnumAndVariant,
+    liftError?: (buffer: UniffiByteArray) => Error,
   ): T {
     _checkUniffiLoaded();
 
@@ -207,10 +206,10 @@ class UniffiFfiRsRustCaller {
   }
 }
 
-function uniffiCheckCallStatus<ErrorEnumAndVariant extends [string, string]>(
+function uniffiCheckCallStatus(
   callStatus: UniffiRustCallStatusStruct,
   liftString: (bytes: UniffiByteArray) => string,
-  liftError?: (buffer: UniffiByteArray) => ErrorEnumAndVariant,
+  liftError?: (buffer: UniffiByteArray) => Error,
 ) {
   switch (callStatus.code) {
     case CALL_SUCCESS:
@@ -224,8 +223,7 @@ function uniffiCheckCallStatus<ErrorEnumAndVariant extends [string, string]>(
         const errorBufBytes = struct.consumeIntoUint8Array();
 
         if (liftError) {
-          const [enumName, errorVariant] = liftError(errorBufBytes);
-          throw new UniffiError(enumName, errorVariant);
+          throw liftError(errorBufBytes);
         }
       }
       throw new UniffiInternalError.UnexpectedRustCallError();
@@ -498,7 +496,7 @@ const FFI_DYNAMIC_LIB = define({
         /* {{ arg.name() }} */ {{ arg.type_().borrow() | typescript_ffi_type_name }}{% if !loop.last %}, {% endif %}
       {%- endfor %}
       {%-   if callback.has_rust_call_status_arg() -%}
-      {%      if callback.arguments().len() > 0 %}, {% endif %} RustCallStatus
+      {%      if callback.arguments().len() > 0 %}, {% endif %}{{ &FfiType::RustCallStatus | typescript_ffi_type_name }}
       {%-   endif %}
     ]) => {%- match callback.return_type() %}
     {%-   when Some(return_type) %}
