@@ -5,7 +5,7 @@
 > The development effort is now shifted towards adding NodeJS support to [`uniffi-bindgen-react-native`][ubrn] which already supports
 > React Native and WASM. Further details on that effort can be found in [this issue][player-proposal].
 >
-> While that is going on, pull-requests on this repo are going to take longer than usual to review and merge, and may never be merged.
+> During this transitions, pull-requests on this repo are going to take longer than usual to review and merge, and some may not be merged.
 >
 > When the `uniffi-bindgen-react-native` gains NodeJS support it will be renamed to `uniffi-bindgen-javascript`, and this project
 > will be deprecated.
