@@ -120,6 +120,7 @@ function _uniffiLoad() {
 function _uniffiUnload() {
   close('lib{{ ci.crate_name() }}');
   libraryLoaded = false;
+  _nativeByteBufPool = null;
 }
 
 function _checkUniffiLoaded() {
@@ -149,6 +150,14 @@ const [nullPointer] = unwrapPointer(createPointer({
 }));
 
 class UniffiFfiRsRustCaller {
+  // Pool of reusable call status externals to avoid per-call createPointer leak.
+  // ffi-rs's freePointer is a no-op for struct-typed createPointer allocations,
+  // so we reuse a small pool instead. makeRustCall is synchronous but can nest
+  // (e.g., processWithVad → allocateWithBytes → makeRustCall), so we use a
+  // depth counter to index into the pool. Max observed depth is 2.
+  private _callStatusPool: Array<{ wrapped: [JsExternal]; unwrapped: JsExternal }> = [];
+  private _callStatusDepth = 0;
+
   rustCall<T>(
     caller: (status: JsExternal) => T,
     liftString: (bytes: UniffiByteArray) => string,
@@ -176,6 +185,14 @@ class UniffiFfiRsRustCaller {
     return $callStatus as [JsExternal];
   }
 
+  private _getPooledCallStatus(): { wrapped: [JsExternal]; unwrapped: JsExternal } {
+    if (this._callStatusDepth >= this._callStatusPool.length) {
+      const wrapped = this.createCallStatus();
+      this._callStatusPool.push({ wrapped, unwrapped: unwrapPointer(wrapped)[0] });
+    }
+    return this._callStatusPool[this._callStatusDepth];
+  }
+
   createErrorStatus(_code: number, _errorBuf: UniffiByteArray): JsExternal {
     // FIXME: what is this supposed to do and how does it not allocate `errorBuf` when making the
     // call status struct?
@@ -194,16 +211,21 @@ class UniffiFfiRsRustCaller {
   ): T {
     _checkUniffiLoaded();
 
-    const $callStatus = this.createCallStatus();
-    let returnedVal = caller(unwrapPointer($callStatus)[0]);
+    const pooled = this._getPooledCallStatus();
+    this._callStatusDepth += 1;
+    try {
+      let returnedVal = caller(pooled.unwrapped);
 
-    const [callStatus] = restorePointer({
-      retType: [DataType_UniffiRustCallStatus],
-      paramsValue: $callStatus,
-    });
-    uniffiCheckCallStatus(callStatus, liftString, liftError);
+      const [callStatus] = restorePointer({
+        retType: [DataType_UniffiRustCallStatus],
+        paramsValue: pooled.wrapped,
+      });
+      uniffiCheckCallStatus(callStatus, liftString, liftError);
 
-    return returnedVal;
+      return returnedVal;
+    } finally {
+      this._callStatusDepth -= 1;
+    }
   }
 }
 
@@ -304,6 +326,30 @@ const DataType_UniffiForeignBytes = {
   * `RustBufferValue`s are behind the scenes backed by manually managed memory on the rust end, and
   * must be explictly destroyed when no longer used to ensure no memory is leaked.
   * */
+// Pooled native byte buffer for allocateWithBytes to avoid per-call createPointer leak.
+// ffi-rs's freePointer is a no-op for both struct-typed and U8Array-typed externals,
+// so there is no way to explicitly free createPointer allocations through ffi-rs today.
+// Instead, we allocate once and reuse: createPointer(U8Array) gives a pointer to the
+// Buffer's own memory (zero-copy), so writing to the Buffer before each call updates the
+// native memory that the External references. Rust's ffi_rustbuffer_from_bytes copies the
+// data into a new RustBuffer, so reusing the source buffer is safe.
+// Cleared in _uniffiUnload to make the allocation GC-eligible on shutdown.
+let _nativeByteBufPool: { buffer: Buffer; unwrappedExternal: JsExternal; capacity: number } | null = null;
+
+function _getNativeByteBuffer(minSize: number): { buffer: Buffer; unwrappedExternal: JsExternal } {
+  if (!_nativeByteBufPool || _nativeByteBufPool.capacity < minSize) {
+    const capacity = Math.max(minSize, 256);
+    const buffer = Buffer.alloc(capacity);
+    const [external] = createPointer({
+      paramsType: [arrayConstructor({ type: DataType.U8Array, length: capacity })],
+      paramsValue: [buffer],
+    });
+    const unwrappedExternal = unwrapPointer([external])[0];
+    _nativeByteBufPool = { buffer, unwrappedExternal, capacity };
+  }
+  return _nativeByteBufPool;
+}
+
 export class UniffiRustBufferValue {
   private struct: UniffiRustBufferStruct | null;
 
@@ -312,27 +358,18 @@ export class UniffiRustBufferValue {
   }
 
   static allocateWithBytes(bytes: Uint8Array) {
-    const [ dataPointer ] = createPointer({
-      paramsType: [arrayConstructor({ type: DataType.U8Array, length: bytes.length })],
-      paramsValue: [bytes],
-    });
+    const pool = _getNativeByteBuffer(bytes.length);
+    pool.buffer.set(bytes);
 
     const rustBuffer = uniffiCaller.rustCall(
       (callStatus) => {
         return FFI_DYNAMIC_LIB.{{ci.ffi_rustbuffer_from_bytes().name()}}([
-          // TODO: figure out why this is necessary.
-          { data: unwrapPointer([dataPointer])[0], len: bytes.byteLength },
+          { data: pool.unwrappedExternal, len: bytes.byteLength },
           callStatus,
         ]);
       },
       /*liftString:*/ {{ &Type::String | typescript_ffi_converter_name }}.lift,
     );
-
-    freePointer({
-      paramsType: [arrayConstructor({ type: DataType.U8Array, length: bytes.byteLength })],
-      paramsValue: [dataPointer],
-      pointerType: PointerType.RsPointer
-    });
 
     return new UniffiRustBufferValue(rustBuffer);
   }
