@@ -195,15 +195,23 @@ class UniffiFfiRsRustCaller {
     _checkUniffiLoaded();
 
     const $callStatus = this.createCallStatus();
-    let returnedVal = caller(unwrapPointer($callStatus)[0]);
+    try {
+      let returnedVal = caller(unwrapPointer($callStatus)[0]);
 
-    const [callStatus] = restorePointer({
-      retType: [DataType_UniffiRustCallStatus],
-      paramsValue: $callStatus,
-    });
-    uniffiCheckCallStatus(callStatus, liftString, liftError);
+      const [callStatus] = restorePointer({
+        retType: [DataType_UniffiRustCallStatus],
+        paramsValue: $callStatus,
+      });
+      uniffiCheckCallStatus(callStatus, liftString, liftError);
 
-    return returnedVal;
+      return returnedVal;
+    } finally {
+      freePointer({
+        paramsType: [DataType_UniffiRustCallStatus],
+        paramsValue: $callStatus,
+        pointerType: PointerType.RsPointer,
+      });
+    }
   }
 }
 
