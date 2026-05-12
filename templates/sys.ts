@@ -317,24 +317,26 @@ export class UniffiRustBufferValue {
       paramsValue: [bytes],
     });
 
-    const rustBuffer = uniffiCaller.rustCall(
-      (callStatus) => {
-        return FFI_DYNAMIC_LIB.{{ci.ffi_rustbuffer_from_bytes().name()}}([
-          // TODO: figure out why this is necessary.
-          { data: unwrapPointer([dataPointer])[0], len: bytes.byteLength },
-          callStatus,
-        ]);
-      },
-      /*liftString:*/ {{ &Type::String | typescript_ffi_converter_name }}.lift,
-    );
+    try {
+      const rustBuffer = uniffiCaller.rustCall(
+        (callStatus) => {
+          return FFI_DYNAMIC_LIB.{{ci.ffi_rustbuffer_from_bytes().name()}}([
+            // TODO: figure out why this is necessary.
+            { data: unwrapPointer([dataPointer])[0], len: bytes.byteLength },
+            callStatus,
+          ]);
+        },
+        /*liftString:*/ {{ &Type::String | typescript_ffi_converter_name }}.lift,
+      );
 
-    freePointer({
-      paramsType: [arrayConstructor({ type: DataType.U8Array, length: bytes.byteLength })],
-      paramsValue: [dataPointer],
-      pointerType: PointerType.RsPointer
-    });
-
-    return new UniffiRustBufferValue(rustBuffer);
+      return new UniffiRustBufferValue(rustBuffer);
+    } finally {
+      freePointer({
+        paramsType: [arrayConstructor({ type: DataType.U8Array, length: bytes.byteLength })],
+        paramsValue: [dataPointer],
+        pointerType: PointerType.RsPointer
+      });
+    }
   }
 
   static allocateEmpty() {
