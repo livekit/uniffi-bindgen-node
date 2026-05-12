@@ -358,12 +358,22 @@ export class UniffiRustBufferValue {
       throw new Error(`Error converting rust buffer to uint8array - rust buffer length is ${this.struct.len}, which cannot be represented as a Number safely.`)
     }
 
-    const [contents] = restorePointer({
-      retType: [arrayConstructor({ type: DataType.U8Array, length: Number(this.struct.len) })],
-      paramsValue: wrapPointer([this.struct.data]),
-    });
+    const length = Number(this.struct.len);
+    const wrapped = wrapPointer([this.struct.data]);
+    try {
+      const [contents] = restorePointer({
+        retType: [arrayConstructor({ type: DataType.U8Array, length })],
+        paramsValue: wrapped,
+      });
 
-    return new Uint8Array(contents);
+      return new Uint8Array(contents);
+    } finally {
+      freePointer({
+        paramsType: [arrayConstructor({ type: DataType.U8Array, length })],
+        paramsValue: wrapped,
+        pointerType: PointerType.RsPointer,
+      });
+    }
   }
 
   consumeIntoUint8Array() {
