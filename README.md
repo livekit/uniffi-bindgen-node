@@ -1,3 +1,18 @@
+> [!WARNING]
+> `uniffi-bindgen-node` is no longer being actively developed. It is still in use, and currently the only way
+> to run uniffi enabled Rust on Node, Deno and Bun. But it is incomplete.
+>
+> The development effort is now shifted towards adding NodeJS support to [`uniffi-bindgen-react-native`][ubrn] which already supports
+> React Native and WASM. Further details on that effort can be found in [this issue][player-proposal].
+>
+> During this transitions, pull-requests on this repo are going to take longer than usual to review and merge, and some may not be merged.
+>
+> When the `uniffi-bindgen-react-native` gains NodeJS support it will be renamed to `uniffi-bindgen-javascript`, and this project
+> will be deprecated.
+
+[ubrn]: https://github.com/jhugman/uniffi-bindgen-react-native
+[player-proposal]: https://github.com/jhugman/uniffi-bindgen-react-native/issues/360
+
 # uniffi-bindgen-node
 
 `uniffi-bindgen-node` is an experimental [uniffi](https://mozilla.github.io/uniffi-rs/latest/)
